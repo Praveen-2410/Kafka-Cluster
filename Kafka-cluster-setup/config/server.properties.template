@@ -1,11 +1,11 @@
 # KRaft & Cluster Configuration
 process.roles=broker,controller
-node.id=1
-controller.quorum.voters=1@172.31.45.227:9093,2@172.31.40.166:9093,3@172.31.32.39:9093
+node.id=$NODE_ID
+controller.quorum.voters=1@$BROKER1_IP:9093,2@$BROKER2_IP:9093,3@$BROKER3_IP:9093
 
 # Listener & Protocol Configuration
 listeners=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
-advertised.listeners=INTERNAL://172.31.45.227:9092,EXTERNAL://52.22.126.196:9094,CONTROLLER://172.31.45.227:9093
+advertised.listeners=INTERNAL://$BROKER_IP:9092,EXTERNAL://$BROKER_IP:9094,CONTROLLER://$BROKER_IP:9093
 listener.security.protocol.map=INTERNAL:PLAINTEXT,EXTERNAL:SASL_SSL,CONTROLLER:PLAINTEXT
 inter.broker.listener.name=INTERNAL
 controller.listener.names=CONTROLLER
