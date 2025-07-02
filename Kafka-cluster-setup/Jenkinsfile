@@ -6,7 +6,7 @@ pipeline {
     IMAGE_TAG = "v1"
     NODE1 = "ec2-user@172.31.24.96"
     NODE2 = "ec2-user@172.31.30.30"
-    NODE3 = "ec2-user@172.31.20.207"
+    NODE3 = "ec2-user@172.31.24.181"
     REMOTE_DIR = "/home/ec2-user/kafka-cluster"
   }
 
