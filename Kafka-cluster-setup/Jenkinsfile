@@ -39,13 +39,20 @@ pipeline {
 
     stage('Distribute Files to All Nodes') {
       steps {
-        script {
-          def nodes = [env.NODE1, env.NODE2, env.NODE3]
-          for (node in nodes) {
-            sh """
-              ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR'
-              scp -r Kafka-cluster-setup/.env Kafka-cluster-setup/Dockerfile Kafka-cluster-setup/docker-compose.yml.template Kafka-cluster-setup/config Kafka-cluster-setup/scripts $node:$REMOTE_DIR/
-            """
+        sshagent(credentials: ['ec2-key']) {
+          script {
+            def nodes = [env.NODE1, env.NODE2, env.NODE3]
+            for (node in nodes) {
+              sh """
+                ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR'
+                scp -o StrictHostKeyChecking=no -r Kafka-cluster-setup/.env \
+                    Kafka-cluster-setup/Dockerfile \
+                    Kafka-cluster-setup/docker-compose.yml.template \
+                    Kafka-cluster-setup/config \
+                    Kafka-cluster-setup/scripts \
+                    $node:$REMOTE_DIR/
+              """
+            }
           }
         }
       }
@@ -53,10 +60,12 @@ pipeline {
 
     stage('Run Dir Setup on All Nodes') {
       steps {
-        script {
-          def nodes = [env.NODE1, env.NODE2, env.NODE3]
-          for (node in nodes) {
-            sh "ssh $node 'bash $REMOTE_DIR/scripts/dir-setup.sh'"
+        sshagent(credentials: ['ec2-key']) {
+          script {
+            def nodes = [env.NODE1, env.NODE2, env.NODE3]
+            for (node in nodes) {
+              sh "ssh -o StrictHostKeyChecking=no $node 'bash $REMOTE_DIR/scripts/dir-setup.sh'"
+            }
           }
         }
       }
@@ -64,26 +73,30 @@ pipeline {
 
     stage('Generate Configs (envsubst)') {
       steps {
-        script {
-          sh "ssh $NODE1 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 1'"
-          sh "ssh $NODE2 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 2'"
-          sh "ssh $NODE3 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 3'"
+        sshagent(credentials: ['ec2-key']) {
+          sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 1'"
+          sh "ssh -o StrictHostKeyChecking=no $NODE2 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 2'"
+          sh "ssh -o StrictHostKeyChecking=no $NODE3 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 3'"
         }
       }
     }
 
     stage('Cluster ID Setup + Format') {
       steps {
-        sh "ssh $NODE1 'cd $REMOTE_DIR && bash scripts/cluster-id_format-metadata.sh'"
+        sshagent(credentials: ['ec2-key']) {
+          sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/cluster-id_format-metadata.sh'"
+        }
       }
     }
 
     stage('Start Kafka Containers') {
       steps {
-        script {
-          def nodes = [env.NODE1, env.NODE2, env.NODE3]
-          for (node in nodes) {
-            sh "ssh $node 'cd $REMOTE_DIR && docker-compose -f docker-compose.yml up -d'"
+        sshagent(credentials: ['ec2-key']) {
+          script {
+            def nodes = [env.NODE1, env.NODE2, env.NODE3]
+            for (node in nodes) {
+              sh "ssh -o StrictHostKeyChecking=no $node 'cd $REMOTE_DIR && docker-compose -f docker-compose.yml up -d'"
+            }
           }
         }
       }
@@ -91,13 +104,17 @@ pipeline {
 
     stage('Verify Cluster & Create Admin User') {
       steps {
-        sh "ssh $NODE1 'cd $REMOTE_DIR && bash scripts/verify-cluster-and-setup-admin.sh'"
+        sshagent(credentials: ['ec2-key']) {
+          sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/verify-cluster-and-setup-admin.sh'"
+        }
       }
     }
 
     stage('Create SCRAM Users & ACLs') {
       steps {
-        sh "ssh $NODE1 'cd $REMOTE_DIR && bash scripts/create_users_topic.sh'"
+        sshagent(credentials: ['ec2-key']) {
+          sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/create_users_topic.sh'"
+        }
       }
     }
   }
