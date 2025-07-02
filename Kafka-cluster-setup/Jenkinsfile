@@ -20,6 +20,7 @@ pipeline {
           echo "Using image: ${env.IMAGE_FULL}"
           dir('Kafka-cluster-setup') {
            writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
+          }
         }
       }
     }
