@@ -39,7 +39,7 @@ pipeline {
 
     stage('Distribute Files to All Nodes') {
       steps {
-        sshagent(credentials: ['ec2-key']) {
+        sshagent(credentials: ['ec2-ssh-key']) {
           script {
             def nodes = [env.NODE1, env.NODE2, env.NODE3]
             for (node in nodes) {
@@ -60,7 +60,7 @@ pipeline {
 
     stage('Run Dir Setup on All Nodes') {
       steps {
-        sshagent(credentials: ['ec2-key']) {
+        sshagent(credentials: ['ec2-ssh-key']) {
           script {
             def nodes = [env.NODE1, env.NODE2, env.NODE3]
             for (node in nodes) {
@@ -73,7 +73,7 @@ pipeline {
 
     stage('Generate Configs (envsubst)') {
       steps {
-        sshagent(credentials: ['ec2-key']) {
+        sshagent(credentials: ['ec2-ssh-key']) {
           sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 1'"
           sh "ssh -o StrictHostKeyChecking=no $NODE2 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 2'"
           sh "ssh -o StrictHostKeyChecking=no $NODE3 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 3'"
@@ -83,7 +83,7 @@ pipeline {
 
     stage('Cluster ID Setup + Format') {
       steps {
-        sshagent(credentials: ['ec2-key']) {
+        sshagent(credentials: ['ec2-ssh-key']) {
           sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/cluster-id_format-metadata.sh'"
         }
       }
@@ -91,7 +91,7 @@ pipeline {
 
     stage('Start Kafka Containers') {
       steps {
-        sshagent(credentials: ['ec2-key']) {
+        sshagent(credentials: ['ec2-ssh-key']) {
           script {
             def nodes = [env.NODE1, env.NODE2, env.NODE3]
             for (node in nodes) {
@@ -104,7 +104,7 @@ pipeline {
 
     stage('Verify Cluster & Create Admin User') {
       steps {
-        sshagent(credentials: ['ec2-key']) {
+        sshagent(credentials: ['ec2-ssh-key']) {
           sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/verify-cluster-and-setup-admin.sh'"
         }
       }
@@ -112,7 +112,7 @@ pipeline {
 
     stage('Create SCRAM Users & ACLs') {
       steps {
-        sshagent(credentials: ['ec2-key']) {
+        sshagent(credentials: ['ec2-ssh-key']) {
           sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/create_users_topic.sh'"
         }
       }
