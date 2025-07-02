@@ -14,7 +14,7 @@ BROKER_IP=$(eval echo \$BROKER${BROKER_NUM}_IP)
 CONTAINER_NAME=$(eval echo \$CONTAINER_NAME_${BROKER_NUM})
 
 # Export them for envsubst
-export NODE_ID BROKER_IP CONTAINER_NAME BROKER1_IP BROKER2_IP BROKER3_IP
+export NODE_ID BROKER_IP CONTAINER_NAME BROKER1_IP BROKER2_IP BROKER3_IP IMAGE_FULL
 
 # Replace templates with actual values
 envsubst < config/server.properties.template > config/server.properties
