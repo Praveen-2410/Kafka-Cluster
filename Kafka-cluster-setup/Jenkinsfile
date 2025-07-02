@@ -2,19 +2,26 @@ pipeline {
   agent any
 
   environment {
-    REPO_HOST = "54.165.20.66:5000"
-    REPO_NAME = "uae-kafka"
-    IMAGE_NAME = "npc-uae-kafka"
-    IMAGE_TAG = "${REPO_NAME}-image-$(date +%Y%m%d%H%M%S)"
-    IMAGE_FULL = "$REPO_HOST/$REPO_NAME/$IMAGE_NAME:$IMAGE_TAG"
-
+    NEXUS_REPO = "54.165.20.66:5000/uae-kafka"
+    REPO_NAME = "kafka-broker"
+    REMOTE_DIR = "/home/ec2-user/kafka-cluster"
     NODE1 = "ec2-user@172.31.24.96"
     NODE2 = "ec2-user@172.31.30.30"
     NODE3 = "ec2-user@172.31.24.181"
-    REMOTE_DIR = "/home/ec2-user/kafka-cluster"
   }
 
   stages {
+
+    stage('Generate Dynamic Tag') {
+      steps {
+        script {
+          def datetime = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
+          env.IMAGE_TAG = "${env.REPO_NAME}-image-${datetime}:latest"
+          env.IMAGE_FULL = "${env.NEXUS_REPO}/${env.IMAGE_TAG}"
+          echo "Using image: ${env.IMAGE_FULL}"
+        }
+      }
+    }
 
     stage('Checkout Git Repo') {
       steps {
@@ -34,7 +41,7 @@ pipeline {
       steps {
         withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
           sh '''
-            docker login $REPO_HOST -u $NEXUS_USER -p $NEXUS_PASS
+            docker login 54.165.20.66:5000 -u $NEXUS_USER -p $NEXUS_PASS
             docker push $IMAGE_FULL
           '''
         }
