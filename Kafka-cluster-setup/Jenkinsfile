@@ -40,10 +40,10 @@ pipeline {
     stage('Push Image to Nexus') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-          sh """
+          sh '''
             docker login 54.165.20.66:5000 -u $NEXUS_USER -p $NEXUS_PASS
             docker push $IMAGE_FULL
-          """
+          '''
         }
       }
     }
@@ -95,7 +95,42 @@ pipeline {
     stage('Cluster ID Setup + Format') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/cluster-id_format-metadata.sh'"
+          script {
+            def nodes = [env.NODE1, env.NODE2, env.NODE3]
+            def existingClusterIds = []
+
+            for (node in nodes) {
+              def id = sh(
+                script: "ssh -o StrictHostKeyChecking=no $node 'grep cluster.id $REMOTE_DIR/data/meta.properties | cut -d= -f2 || true'",
+                returnStdout: true
+              ).trim()
+              existingClusterIds.add(id ?: '')
+            }
+
+            def uniqueIds = existingClusterIds.findAll { it }.unique()
+            if (uniqueIds.size() == 1) {
+              echo "All brokers already formatted with cluster ID: ${uniqueIds[0]}"
+              return
+            }
+
+            if (uniqueIds.size() > 1) {
+              echo "Mismatched cluster IDs found. Backing up and cleaning..."
+              def timestamp = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
+              for (node in nodes) {
+                sh "ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR/data-dir-backup-${timestamp} && cp -r $REMOTE_DIR/data/* $REMOTE_DIR/data-dir-backup-${timestamp}/ && rm -rf $REMOTE_DIR/data/*'"
+              }
+            }
+
+            def clusterId = sh(
+              script: "docker run --rm $IMAGE_FULL /opt/kafka/bin/kafka-storage.sh random-uuid",
+              returnStdout: true
+            ).trim()
+            echo "Generated Cluster ID: ${clusterId}"
+
+            for (node in nodes) {
+              sh "ssh -o StrictHostKeyChecking=no $node 'docker run --rm -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties -v $REMOTE_DIR/data:/var/lib/kafka/data $IMAGE_FULL /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties'"
+            }
+          }
         }
       }
     }
