@@ -61,6 +61,7 @@ pipeline {
                     Kafka-cluster-setup/docker-compose.yml.template \
                     Kafka-cluster-setup/config \
                     Kafka-cluster-setup/scripts \
+                    Kafka-cluster-setup/image-tag.txt \
                     $node:$REMOTE_DIR/
               """
             }
