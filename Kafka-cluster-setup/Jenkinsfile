@@ -122,13 +122,13 @@ pipeline {
             }
 
             def clusterId = sh(
-              script: "sudo docker run --rm $IMAGE_FULL /opt/kafka/bin/kafka-storage.sh random-uuid",
+              script: "docker run --rm $IMAGE_FULL /opt/kafka/bin/kafka-storage.sh random-uuid",
               returnStdout: true
             ).trim()
             echo "Generated Cluster ID: ${clusterId}"
 
             for (node in nodes) {
-              sh "ssh -o StrictHostKeyChecking=no $node 'sudo docker run --rm -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties -v $REMOTE_DIR/data:/var/lib/kafka/data $IMAGE_FULL /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties'"
+              sh "ssh -o StrictHostKeyChecking=no $node 'docker run --rm -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties -v $REMOTE_DIR/data:/var/lib/kafka/data $IMAGE_FULL /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties'"
             }
           }
         }
