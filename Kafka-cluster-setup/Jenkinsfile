@@ -3,7 +3,6 @@ pipeline {
 
   environment {
     NEXUS_REPO = "54.165.20.66:5000/uae-kafka"
-    REPO_NAME = "kafka-broker"
     REMOTE_DIR = "/home/ec2-user/kafka-cluster"
     NODE1 = "ec2-user@172.31.24.96"
     NODE2 = "ec2-user@172.31.30.30"
@@ -15,8 +14,8 @@ pipeline {
     stage('Generate Dynamic Tag') {
       steps {
         script {
-          def datetime = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
-          env.IMAGE_TAG = "${env.REPO_NAME}-image-${datetime}:latest"
+          def timestamp = sh(script: "date +%Y%m%d%H%M", returnStdout: true).trim()
+          env.IMAGE_TAG = "npc-uae-kafka-${timestamp}:latest"
           env.IMAGE_FULL = "${env.NEXUS_REPO}/${env.IMAGE_TAG}"
           echo "Using image: ${env.IMAGE_FULL}"
         }
@@ -121,14 +120,19 @@ pipeline {
               }
             }
 
-            def clusterId = sh(
-              script: "docker run --rm $IMAGE_FULL /opt/kafka/bin/kafka-storage.sh random-uuid",
-              returnStdout: true
-            ).trim()
+            sh 'docker pull apache/kafka:4.0.0'
+            def clusterId = sh(script: "docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
             echo "Generated Cluster ID: ${clusterId}"
 
             for (node in nodes) {
-              sh "ssh -o StrictHostKeyChecking=no $node 'docker run --rm -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties -v $REMOTE_DIR/data:/var/lib/kafka/data $IMAGE_FULL /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties'"
+              sh """
+                ssh -o StrictHostKeyChecking=no $node \
+                'docker run --rm \
+                  -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties \
+                  -v $REMOTE_DIR/data:/var/lib/kafka/data \
+                  apache/kafka:4.0.0 \
+                  /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties'
+              """
             }
           }
         }
