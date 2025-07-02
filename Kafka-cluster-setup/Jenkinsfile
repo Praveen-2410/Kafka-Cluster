@@ -1,0 +1,102 @@
+pipeline {
+  agent any
+
+  environment {
+    NEXUS_REPO = "54.165.20.66:5000/uae-kafka/kafka-broker"
+    IMAGE_TAG = "v1"
+    NODE1 = "ec2-user@172.31.24.96"
+    NODE2 = "ec2-user@172.31.30.30"
+    NODE3 = "ec2-user@172.31.20.207"
+    REMOTE_DIR = "/home/ec2-user/kafka-cluster"
+  }
+
+  stages {
+
+    stage('Checkout Git Repo') {
+      steps {
+        git branch: 'main', url: 'https://github.com/Praveen-2410/Kafka-Cluster.git'
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        sh 'docker build -t $NEXUS_REPO:$IMAGE_TAG .'
+      }
+    }
+
+    stage('Push Image to Nexus') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+          sh '''
+            docker login 54.165.20.66:5000 -u $NEXUS_USER -p $NEXUS_PASS
+            docker push $NEXUS_REPO:$IMAGE_TAG
+          '''
+        }
+      }
+    }
+
+    stage('Distribute Files to All Nodes') {
+      steps {
+        script {
+          def nodes = [env.NODE1, env.NODE2, env.NODE3]
+          for (node in nodes) {
+            sh """
+              ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR'
+              scp -r .env Dockerfile docker-compose.yml.template config scripts $node:$REMOTE_DIR/
+            """
+          }
+        }
+      }
+    }
+
+    stage('Run Dir Setup on All Nodes') {
+      steps {
+        script {
+          def nodes = [env.NODE1, env.NODE2, env.NODE3]
+          for (node in nodes) {
+            sh "ssh $node 'bash $REMOTE_DIR/scripts/dir-setup.sh'"
+          }
+        }
+      }
+    }
+
+    stage('Generate Configs (envsubst)') {
+      steps {
+        script {
+          sh "ssh $NODE1 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 1'"
+          sh "ssh $NODE2 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 2'"
+          sh "ssh $NODE3 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 3'"
+        }
+      }
+    }
+
+    stage('Cluster ID Setup + Format') {
+      steps {
+        sh "ssh $NODE1 'cd $REMOTE_DIR && bash scripts/cluster-id_format-metadata.sh'"
+      }
+    }
+
+    stage('Start Kafka Containers') {
+      steps {
+        script {
+          def nodes = [env.NODE1, env.NODE2, env.NODE3]
+          for (node in nodes) {
+            sh "ssh $node 'cd $REMOTE_DIR && docker-compose -f docker-compose.yml up -d'"
+          }
+        }
+      }
+    }
+
+    stage('Verify Cluster & Create Admin User') {
+      steps {
+        sh "ssh $NODE1 'cd $REMOTE_DIR && bash scripts/verify-cluster-and-setup-admin.sh'"
+      }
+    }
+
+    stage('Create SCRAM Users & ACLs') {
+      steps {
+        sh "ssh $NODE1 'cd $REMOTE_DIR && bash scripts/create_users_topic.sh'"
+      }
+    }
+  }
+}
