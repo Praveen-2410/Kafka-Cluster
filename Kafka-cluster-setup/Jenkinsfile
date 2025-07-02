@@ -18,6 +18,7 @@ pipeline {
           env.IMAGE_TAG = "npc-uae-kafka-${timestamp}:latest"
           env.IMAGE_FULL = "${env.NEXUS_REPO}/${env.IMAGE_TAG}"
           echo "Using image: ${env.IMAGE_FULL}"
+          writeFile file: 'Kafka-cluster-setup/.env', text: "IMAGE_FULL=${env.IMAGE_FULL}\n"
         }
       }
     }
