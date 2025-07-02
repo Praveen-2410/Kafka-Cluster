@@ -28,7 +28,7 @@ pipeline {
 
     stage('Push Image to Nexus') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+        withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
           sh '''
             docker login 54.165.20.66:5000 -u $NEXUS_USER -p $NEXUS_PASS
             docker push $NEXUS_REPO:$IMAGE_TAG
