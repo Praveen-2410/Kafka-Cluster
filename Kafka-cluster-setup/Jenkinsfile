@@ -20,7 +20,9 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        sh 'docker build -t $NEXUS_REPO:$IMAGE_TAG .'
+        dir('Kafka-cluster-setup') {
+          sh 'docker build -t $NEXUS_REPO:$IMAGE_TAG .'
+        }
       }
     }
 
@@ -42,7 +44,7 @@ pipeline {
           for (node in nodes) {
             sh """
               ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR'
-              scp -r .env Dockerfile docker-compose.yml.template config scripts $node:$REMOTE_DIR/
+              scp -r Kafka-cluster-setup/.env Kafka-cluster-setup/Dockerfile Kafka-cluster-setup/docker-compose.yml.template Kafka-cluster-setup/config Kafka-cluster-setup/scripts $node:$REMOTE_DIR/
             """
           }
         }
