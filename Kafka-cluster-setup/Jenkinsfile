@@ -2,8 +2,12 @@ pipeline {
   agent any
 
   environment {
-    NEXUS_REPO = "54.165.20.66:5000/uae-kafka/kafka-broker"
-    IMAGE_TAG = "v1"
+    REPO_HOST = "54.165.20.66:5000"
+    REPO_NAME = "uae-kafka"
+    IMAGE_NAME = "npc-uae-kafka"
+    IMAGE_TAG = "${REPO_NAME}-image-$(date +%Y%m%d%H%M%S)"
+    IMAGE_FULL = "$REPO_HOST/$REPO_NAME/$IMAGE_NAME:$IMAGE_TAG"
+
     NODE1 = "ec2-user@172.31.24.96"
     NODE2 = "ec2-user@172.31.30.30"
     NODE3 = "ec2-user@172.31.24.181"
@@ -21,7 +25,7 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         dir('Kafka-cluster-setup') {
-          sh 'docker build -t $NEXUS_REPO:$IMAGE_TAG .'
+          sh 'docker build -t $IMAGE_FULL .'
         }
       }
     }
@@ -30,8 +34,8 @@ pipeline {
       steps {
         withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
           sh '''
-            docker login 54.165.20.66:5000 -u $NEXUS_USER -p $NEXUS_PASS
-            docker push $NEXUS_REPO:$IMAGE_TAG
+            docker login $REPO_HOST -u $NEXUS_USER -p $NEXUS_PASS
+            docker push $IMAGE_FULL
           '''
         }
       }
