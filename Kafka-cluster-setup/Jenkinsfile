@@ -67,32 +67,30 @@ pipeline {
       }
     }
 
-    stage('Distribute Files to All Nodes') {
-      steps {
-        sshagent(credentials: ['ec2-ssh-key']) {
-          script {
-            def nodes = [env.NODE1, env.NODE2, env.NODE3]
-            for (node in nodes) {
-              sh """
-                ssh -o StrictHostKeyChecking=no $node '
-                  sudo mkdir -p $REMOTE_DIR/config/certs $REMOTE_DIR/data $REMOTE_DIR/scripts &&
-                  sudo chown -R ec2-user:ec2-user $REMOTE_DIR &&
-                  sudo chmod -R 755 $REMOTE_DIR
-                '
-                scp -o StrictHostKeyChecking=no -r \
-                  Kafka-cluster-setup/.env \
-                  Kafka-cluster-setup/config \
-                  Kafka-cluster-setup/docker-compose.yml.template \
-                  Kafka-cluster-setup/image-tag.txt \
-                  Kafka-cluster-setup/scripts \
-                  $node:$REMOTE_DIR/
-                ssh -o StrictHostKeyChecking=no $node 'chmod 644 $REMOTE_DIR/config/certs/*.p12'
-              """
-            }
-          }
+stage('Distribute Files to All Nodes') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        def nodes = [env.NODE1, env.NODE2, env.NODE3]
+        for (node in nodes) {
+          sh """
+            ssh -o StrictHostKeyChecking=no $node '
+              sudo rm -rf $REMOTE_DIR &&
+              mkdir -p $REMOTE_DIR &&
+              chmod 755 $REMOTE_DIR
+            '
+            scp -o StrictHostKeyChecking=no -r Kafka-cluster-setup/* $node:$REMOTE_DIR/
+            ssh -o StrictHostKeyChecking=no $node '
+              chmod -R 755 $REMOTE_DIR &&
+              chmod 644 $REMOTE_DIR/config/certs/*.p12
+            '
+          """
         }
       }
     }
+  }
+}
+
 
     stage('Generate Configs (envsubst)') {
       steps {
