@@ -9,16 +9,24 @@ set -e
 source .env
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
-BOOTSTRAP_SERVER="$BROKER_IP:9094"
+BOOTSTRAP_SERVER="$BROKER1_IP:9094"
 ADMIN_USER="admin"
 ADMIN_PASSWORD="admin-password"
 CLIENT_CONFIG_PATH="/opt/kafka/config/client-properties/client-admin.properties"
 
 # Step 1: Describe metadata quorum
 echo "Checking KRaft quorum inside container: $CONTAINER_NAME..."
+set +e
 sudo docker exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-metadata-quorum.sh \
-  --bootstrap-server "$BOOTSTRAP_SERVER" describe --status \
-  | grep -E "ClusterId|LeaderId|HighWatermark"
+  --bootstrap-server "$BOOTSTRAP_SERVER" describe --status > /tmp/quorum-status.txt
+QUORUM_STATUS=$?
+cat /tmp/quorum-status.txt | grep -E "ClusterId|LeaderId|HighWatermark"
+set -e
+
+if [[ "$QUORUM_STATUS" -ne 0 ]]; then
+  echo "ERROR: Quorum check failed"
+  exit 1
+fi
 
 echo "Quorum healthy."
 
@@ -27,7 +35,6 @@ echo "Checking if admin user exists..."
 USER_EXISTS=$(sudo docker exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-configs.sh \
   --bootstrap-server "$BOOTSTRAP_SERVER" \
-  --command-config "$CLIENT_CONFIG_PATH" \
   --describe --entity-type users \
   | grep -c "User:$ADMIN_USER")
 
@@ -36,7 +43,6 @@ if [[ "$USER_EXISTS" -eq 0 ]]; then
   sudo docker exec -i "$CONTAINER_NAME" \
     /opt/kafka/bin/kafka-configs.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
-    --command-config "$CLIENT_CONFIG_PATH" \
     --alter --add-config "SCRAM-SHA-512=[iterations=4096,password=$ADMIN_PASSWORD]" \
     --entity-type users --entity-name "$ADMIN_USER"
 else
