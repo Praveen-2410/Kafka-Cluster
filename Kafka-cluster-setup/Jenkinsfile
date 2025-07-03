@@ -76,6 +76,7 @@ pipeline {
               sh """
                 ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR'
                 scp -o StrictHostKeyChecking=no -r Kafka-cluster-setup/* $node:$REMOTE_DIR/
+                ssh -o StrictHostKeyChecking=no $node 'chmod 644 $REMOTE_DIR/config/certs/*.p12'
               """
             }
           }
@@ -89,12 +90,7 @@ pipeline {
           script {
             def nodes = [env.NODE1, env.NODE2, env.NODE3]
             for (node in nodes) {
-              sh """
-                ssh -o StrictHostKeyChecking=no $node '
-                  bash $REMOTE_DIR/scripts/dir-setup.sh &&
-                  chmod 644 $REMOTE_DIR/config/certs/*.p12
-                '
-              """
+              sh "ssh -o StrictHostKeyChecking=no $node 'bash $REMOTE_DIR/scripts/dir-setup.sh'"
             }
           }
         }
