@@ -30,7 +30,7 @@ done
 
 # Final check
 if [[ "$STATUS" != "true" ]]; then
-  echo "ERROR: Container $CONTAINER_NAME is not running after timeout."
+  echo "❌ ERROR: Container $CONTAINER_NAME is not running after timeout."
   exit 1
 fi
 
@@ -46,18 +46,18 @@ for attempt in {1..5}; do
   set -e
 
   if [[ "$STATUS" -eq 0 ]]; then
-    echo "Quorum established."
-    cat /tmp/quorum-status.txt | grep -E "ClusterId|LeaderId|HighWatermark"
+    echo "✅ Quorum established."
+    grep -E "ClusterId|LeaderId|HighWatermark" /tmp/quorum-status.txt
     QUORUM_READY=1
     break
   else
-    echo "Attempt $attempt: Quorum not ready, retrying in 10s..."
+    echo "⏳ Attempt $attempt: Quorum not ready, retrying in 10s..."
     sleep 10
   fi
 done
 
 if [[ "$QUORUM_READY" -eq 0 ]]; then
-  echo "ERROR: Quorum check failed after 5 retries."
+  echo "❌ ERROR: Quorum check failed after 5 retries."
   exit 1
 fi
 
@@ -66,8 +66,7 @@ echo "Checking if admin user exists..."
 USER_EXISTS=$(sudo docker exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-configs.sh \
   --bootstrap-server "$BOOTSTRAP_SERVER" \
-  --describe --entity-type users \
-  | grep -c "User:$ADMIN_USER")
+  --describe --entity-type users 2>/dev/null | grep -c "User:$ADMIN_USER" || true)
 
 if [[ "$USER_EXISTS" -eq 0 ]]; then
   echo "Creating admin user..."
@@ -76,8 +75,10 @@ if [[ "$USER_EXISTS" -eq 0 ]]; then
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --alter --add-config "SCRAM-SHA-512=[iterations=4096,password=$ADMIN_PASSWORD]" \
     --entity-type users --entity-name "$ADMIN_USER"
+
+  echo "✅ Admin user created."
 else
-  echo "Admin user already exists."
+  echo "✅ Admin user already exists."
 fi
 
 # Admin ACL check
@@ -86,8 +87,7 @@ ACL_EXISTS=$(sudo docker exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-acls.sh \
   --bootstrap-server "$BOOTSTRAP_SERVER" \
   --command-config "$CLIENT_CONFIG_PATH" \
-  --list --principal User:"$ADMIN_USER" \
-  | grep -c "Operation: All")
+  --list --principal User:"$ADMIN_USER" 2>/dev/null | grep -c "Operation: All" || true)
 
 if [[ "$ACL_EXISTS" -eq 0 ]]; then
   echo "Granting full ACLs to admin user..."
@@ -102,8 +102,9 @@ if [[ "$ACL_EXISTS" -eq 0 ]]; then
     --topic '*' \
     --group '*' \
     --cluster
+  echo "✅ ACLs granted to admin user."
 else
-  echo "Admin user already has full ACLs."
+  echo "✅ Admin user already has full ACLs."
 fi
 
-echo "Cluster quorum validated and admin setup complete."
+echo "🎉 Cluster quorum validated and admin setup complete."
