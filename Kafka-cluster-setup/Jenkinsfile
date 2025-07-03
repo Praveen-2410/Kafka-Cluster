@@ -67,6 +67,19 @@ pipeline {
       }
     }
 
+    stage('Run Dir Setup on All Nodes') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          script {
+            def nodes = [env.NODE1, env.NODE2, env.NODE3]
+            for (node in nodes) {
+              sh "ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR && bash $REMOTE_DIR/scripts/dir-setup.sh || true'"
+            }
+          }
+        }
+      }
+    }
+
     stage('Distribute Files to All Nodes') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
@@ -74,24 +87,9 @@ pipeline {
             def nodes = [env.NODE1, env.NODE2, env.NODE3]
             for (node in nodes) {
               sh """
-                ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR'
-                # ✅ Use wildcard to copy all files including nested certs
                 scp -o StrictHostKeyChecking=no -r Kafka-cluster-setup/* $node:$REMOTE_DIR/
+                ssh -o StrictHostKeyChecking=no $node 'chmod 644 $REMOTE_DIR/config/certs/broker.p12 || true'
               """
-            }
-          }
-        }
-      }
-    }
-
-    stage('Run Dir Setup on All Nodes') {
-      steps {
-        sshagent(credentials: ['ec2-ssh-key']) {
-          script {
-            def nodes = [env.NODE1, env.NODE2, env.NODE3]
-            for (node in nodes) {
-              # ✅ This script includes chmod 644 broker.p12
-              sh "ssh -o StrictHostKeyChecking=no $node 'bash $REMOTE_DIR/scripts/dir-setup.sh'"
             }
           }
         }
