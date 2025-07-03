@@ -199,9 +199,10 @@ pipeline {
       }
     }
 
-    stage('Create SCRAM Users & ACLs') {
+    stage('Create Topics, Users & ACLs') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
+          echo "Running create_users_topic.sh to create SCRAM users, topics, and ACLs..."
           sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/create_users_topic.sh'"
         }
       }
