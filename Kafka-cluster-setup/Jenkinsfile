@@ -161,27 +161,27 @@ pipeline {
       }
     }
 
-    stage('Start Kafka Containers') {
-      steps {
-        sshagent(credentials: ['ec2-ssh-key']) {
-          withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-            script {
-              def nodes = [env.NODE1, env.NODE2, env.NODE3]
-              for (node in nodes) {
-                sh """
-                  ssh -o StrictHostKeyChecking=no $node '
-                    IMAGE=$(cat $REMOTE_DIR/image-tag.txt)
-                    echo "$NEXUS_PASS" | docker login $(echo $IMAGE | cut -d/ -f1) -u "$NEXUS_USER" --password-stdin &&
-                    cd $REMOTE_DIR &&
-                    docker-compose -f docker-compose.yml up -d
-                  '
-                """
-              }
-            }
+stage('Start Kafka Containers') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+        script {
+          def nodes = [env.NODE1, env.NODE2, env.NODE3]
+          for (node in nodes) {
+            sh """
+              ssh -o StrictHostKeyChecking=no $node '
+                IMAGE=\$(cat \$REMOTE_DIR/image-tag.txt)
+                echo "\$NEXUS_PASS" | docker login \$(echo \$IMAGE | cut -d/ -f1) -u "\$NEXUS_USER" --password-stdin &&
+                cd \$REMOTE_DIR &&
+                docker-compose -f docker-compose.yml up -d
+              '
+            """
           }
         }
       }
     }
+  }
+}
 
     stage('Verify Cluster & Create Admin User') {
       steps {
