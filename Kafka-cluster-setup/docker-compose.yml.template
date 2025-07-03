@@ -15,12 +15,11 @@ services:
         hard: 100000
     volumes:
       - ./data:/var/lib/kafka/data
-      - ./tls:/opt/kafka/secrets
+      - ./certs:/opt/kafka/secrets
       - ./config/server.properties:/opt/kafka/config/kraft/server.properties
       - ./config/client-properties:/opt/kafka/config/client-properties
       - ./config/client-ssl.properties:/opt/kafka/config/client-ssl.properties
       - ./config/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf
-      - ./scripts/wait-and-init.sh:/opt/kafka/bin/wait-and-init.sh
     environment:
       - KAFKA_OPTS=-Djava.security.auth.login.config=/opt/kafka/config/kafka_jaas.conf
       - KAFKA_HEAP_OPTS=-Xms1g -Xmx1g
