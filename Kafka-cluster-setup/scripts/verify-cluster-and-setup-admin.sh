@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Purpose: Check KRaft quorum, ensure admin user exists, and apply ACLs
-# Usage: Run this on the host machine of Broker-1
+# Purpose: Ensure Kafka container is up, check KRaft quorum, setup admin user and ACLs
+# Usage: Run on host where Broker-1 is running
 
 set -e
 
-# Load environment
+# Load environment variables
 source .env
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
@@ -14,23 +14,54 @@ ADMIN_USER="admin"
 ADMIN_PASSWORD="admin-password"
 CLIENT_CONFIG_PATH="/opt/kafka/config/client-properties/client-admin.properties"
 
-# Step 1: Describe metadata quorum
-echo "Checking KRaft quorum inside container: $CONTAINER_NAME..."
-set +e
-sudo docker exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-metadata-quorum.sh \
-  --bootstrap-server "$BOOTSTRAP_SERVER" describe --status > /tmp/quorum-status.txt
-QUORUM_STATUS=$?
-cat /tmp/quorum-status.txt | grep -E "ClusterId|LeaderId|HighWatermark"
-set -e
+echo "Waiting for container '$CONTAINER_NAME' to be running..."
 
-if [[ "$QUORUM_STATUS" -ne 0 ]]; then
-  echo "ERROR: Quorum check failed"
+# Wait up to 60s (12 × 5s) for the container to be running
+for attempt in {1..12}; do
+  STATUS=$(sudo docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null || echo "false")
+  if [[ "$STATUS" == "true" ]]; then
+    echo "Container $CONTAINER_NAME is running."
+    break
+  else
+    echo "⏳ Attempt $attempt: Container not running yet, retrying in 5s..."
+    sleep 5
+  fi
+done
+
+# Final check
+if [[ "$STATUS" != "true" ]]; then
+  echo "ERROR: Container $CONTAINER_NAME is not running after timeout."
   exit 1
 fi
 
-echo "Quorum healthy."
+echo "Verifying KRaft quorum status inside $CONTAINER_NAME..."
 
-# Step 2: Check if admin user exists
+# Retry quorum check (wait for controller election)
+QUORUM_READY=0
+for attempt in {1..5}; do
+  set +e
+  sudo docker exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-metadata-quorum.sh \
+    --bootstrap-server "$BOOTSTRAP_SERVER" describe --status > /tmp/quorum-status.txt
+  STATUS=$?
+  set -e
+
+  if [[ "$STATUS" -eq 0 ]]; then
+    echo "Quorum established."
+    cat /tmp/quorum-status.txt | grep -E "ClusterId|LeaderId|HighWatermark"
+    QUORUM_READY=1
+    break
+  else
+    echo "Attempt $attempt: Quorum not ready, retrying in 10s..."
+    sleep 10
+  fi
+done
+
+if [[ "$QUORUM_READY" -eq 0 ]]; then
+  echo "ERROR: Quorum check failed after 5 retries."
+  exit 1
+fi
+
+# Admin user check
 echo "Checking if admin user exists..."
 USER_EXISTS=$(sudo docker exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-configs.sh \
@@ -49,7 +80,7 @@ else
   echo "Admin user already exists."
 fi
 
-# Step 3: Check if admin has ACLs
+# Admin ACL check
 echo "Checking if admin ACLs exist..."
 ACL_EXISTS=$(sudo docker exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-acls.sh \
@@ -75,4 +106,4 @@ else
   echo "Admin user already has full ACLs."
 fi
 
-echo "Cluster health verified and admin setup complete."
+echo "Cluster quorum validated and admin setup complete."
