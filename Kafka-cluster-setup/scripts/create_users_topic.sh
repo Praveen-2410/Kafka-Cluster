@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Purpose: Create Kafka users, topics, and assign ACLs securely via container
+# Usage: Run from host – this script will exec into the Kafka container
+
 set -e
 
 # Load environment variables
@@ -33,13 +36,16 @@ declare -A WRITE_ACCESS=(
   ["du-pos-data"]="du etis"
 )
 
+# ---------- Container Check ----------
 echo "🔍 Checking if container '$CONTAINER_NAME' is running..."
-if [[ "$(sudo docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null || echo false)" != "true" ]]; then
+STATUS=$(sudo docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null || echo "false")
+if [[ "$STATUS" != "true" ]]; then
   echo "❌ ERROR: Container $CONTAINER_NAME is not running."
   exit 1
 fi
 
 # ---------- Helper Functions ----------
+
 user_exists() {
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
@@ -52,7 +58,7 @@ create_user() {
   local password=${USER_PASSWORDS[$user]}
 
   if user_exists "$user"; then
-    echo "✅ User '$user' already exists. Skipping creation."
+    echo "✅ User '$user' already exists. Skipping."
   else
     echo "➕ Creating user: $user"
     sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
@@ -75,14 +81,18 @@ topic_exists() {
 create_topic() {
   local topic=$1
   if topic_exists "$topic"; then
-    echo "✅ Topic '$topic' already exists. Skipping creation."
+    echo "✅ Topic '$topic' already exists. Skipping."
   else
     echo "📦 Creating topic: $topic"
-    sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
+    if sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
       --bootstrap-server "$BOOTSTRAP_SERVER" \
       --command-config "$CONFIG" \
-      --create --topic "$topic" --partitions 3 --replication-factor 3
-    echo "✅ Topic '$topic' created."
+      --create --topic "$topic" --partitions 3 --replication-factor 3 2>&1 | tee /tmp/topic-create.log |
+      grep -q "Topic.*already exists"; then
+      echo "⚠️ Warning: Topic '$topic' already exists."
+    else
+      echo "✅ Topic '$topic' created."
+    fi
   fi
 }
 
@@ -93,52 +103,15 @@ acl_exists() {
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
-    --list --topic "$topic" 2>/dev/null | grep -q "User:$user.*$operation"
+    --list --topic "$topic" 2>/dev/null |
+    grep -q "User:$user.*Operation:$operation"
 }
 
 grant_acl() {
   local topic=$1
   local user=$2
   local operation=$3
-
   if acl_exists "$topic" "$user" "$operation"; then
-    echo "✅ ACL for user '$user' on topic '$topic' with operation '$operation' already exists. Skipping."
+    echo "✅ ACL '$operation' for user '$user' on topic '$topic' already exists. Skipping."
   else
-    echo "🔐 Granting $operation access to user '$user' on topic '$topic'"
-    sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
-      --bootstrap-server "$BOOTSTRAP_SERVER" \
-      --command-config "$CONFIG" \
-      --add --allow-principal "User:$user" \
-      --operation "$operation" \
-      --topic "$topic"
-  fi
-}
-
-# ---------- Execution ----------
-echo "🚀 Starting Kafka User, Topic, and ACL Setup"
-
-# Step 1: Users
-for user in "${!USER_PASSWORDS[@]}"; do
-  create_user "$user"
-done
-
-# Step 2: Topics
-for topic in "${TOPICS[@]}"; do
-  create_topic "$topic"
-done
-
-# Step 3: Read ACLs
-for topic in "${!READ_ACCESS[@]}"; do
-  for user in ${READ_ACCESS[$topic]}; do
-    grant_acl "$topic" "$user" Read
-  done
-done
-
-# Step 4: Write ACLs
-for topic in "${!WRITE_ACCESS[@]}"; do
-  for user in ${WRITE_ACCESS[$topic]}; do
-    grant_acl "$topic" "$user" Write
-  done
-done
-
-echo "🎉 Kafka user, topic, and ACL setup complete."
+    echo "🔐 Granting $operation access to user '$user' on
