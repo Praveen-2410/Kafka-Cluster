@@ -2,7 +2,6 @@ pipeline {
   agent any
 
   environment {
-    NEXUS_REPO = "54.165.20.66:5000/uae-kafka"
     REMOTE_DIR = "/home/ec2-user/kafka-cluster"
     NODE1 = "ec2-user@172.31.24.96"
     NODE2 = "ec2-user@172.31.30.30"
@@ -16,11 +15,6 @@ pipeline {
         script {
           def timestamp = sh(script: "date +%Y%m%d%H%M", returnStdout: true).trim()
           env.IMAGE_TAG = "npc-uae-kafka-${timestamp}:latest"
-          env.IMAGE_FULL = "${env.NEXUS_REPO}/${env.IMAGE_TAG}"
-          echo "Using image: ${env.IMAGE_FULL}"
-          dir('Kafka-cluster-setup') {
-           writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
-          }
         }
       }
     }
@@ -31,21 +25,44 @@ pipeline {
       }
     }
 
+    stage('Inject Image Tag into File') {
+      steps {
+        dir('Kafka-cluster-setup') {
+          script {
+            def envVars = readFile('.env').split('\n')
+            def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
+            def nexusHost = nexusHostLine?.split('=')[-1]?.trim()
+
+            if (!nexusHost) {
+              error "NEXUS_HOST not defined in .env file!"
+            }
+
+            env.IMAGE_FULL = "${nexusHost}/uae-kafka/${env.IMAGE_TAG}"
+            echo "Using image: ${env.IMAGE_FULL}"
+            writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
+          }
+        }
+      }
+    }
+
     stage('Build Docker Image') {
       steps {
         dir('Kafka-cluster-setup') {
-          sh 'docker build -t $IMAGE_FULL .'
+          sh 'docker build -t $(cat image-tag.txt) .'
         }
       }
     }
 
     stage('Push Image to Nexus') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-          sh '''
-            docker login 54.165.20.66:5000 -u $NEXUS_USER -p $NEXUS_PASS
-            docker push $IMAGE_FULL
-          '''
+        dir('Kafka-cluster-setup') {
+          withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+            sh '''
+              IMAGE=$(cat image-tag.txt)
+              echo "$NEXUS_PASS" | docker login $(echo $IMAGE | cut -d/ -f1) -u "$NEXUS_USER" --password-stdin
+              docker push $IMAGE
+            '''
+          }
         }
       }
     }
@@ -130,12 +147,13 @@ pipeline {
 
             for (node in nodes) {
               sh """
-                ssh -o StrictHostKeyChecking=no $node \
-                'docker run --rm \
-                  -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties \
-                  -v $REMOTE_DIR/data:/var/lib/kafka/data \
-                  apache/kafka:4.0.0 \
-                  /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties'
+                ssh -o StrictHostKeyChecking=no $node '
+                  docker run --rm \
+                    -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties \
+                    -v $REMOTE_DIR/data:/var/lib/kafka/data \
+                    apache/kafka:4.0.0 \
+                    /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties
+                '
               """
             }
           }
@@ -146,10 +164,19 @@ pipeline {
     stage('Start Kafka Containers') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          script {
-            def nodes = [env.NODE1, env.NODE2, env.NODE3]
-            for (node in nodes) {
-              sh "ssh -o StrictHostKeyChecking=no $node 'cd $REMOTE_DIR && docker-compose -f docker-compose.yml up -d'"
+          withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+            script {
+              def nodes = [env.NODE1, env.NODE2, env.NODE3]
+              for (node in nodes) {
+                sh """
+                  ssh -o StrictHostKeyChecking=no $node '
+                    IMAGE=$(cat $REMOTE_DIR/image-tag.txt)
+                    echo "$NEXUS_PASS" | docker login $(echo $IMAGE | cut -d/ -f1) -u "$NEXUS_USER" --password-stdin &&
+                    cd $REMOTE_DIR &&
+                    docker-compose -f docker-compose.yml up -d
+                  '
+                """
+              }
             }
           }
         }
