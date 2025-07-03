@@ -75,13 +75,8 @@ pipeline {
             for (node in nodes) {
               sh """
                 ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR'
-                scp -o StrictHostKeyChecking=no -r Kafka-cluster-setup/.env \
-                    Kafka-cluster-setup/Dockerfile \
-                    Kafka-cluster-setup/docker-compose.yml.template \
-                    Kafka-cluster-setup/config \
-                    Kafka-cluster-setup/scripts \
-                    Kafka-cluster-setup/image-tag.txt \
-                    $node:$REMOTE_DIR/
+                # ✅ Use wildcard to copy all files including nested certs
+                scp -o StrictHostKeyChecking=no -r Kafka-cluster-setup/* $node:$REMOTE_DIR/
               """
             }
           }
@@ -95,6 +90,7 @@ pipeline {
           script {
             def nodes = [env.NODE1, env.NODE2, env.NODE3]
             for (node in nodes) {
+              # ✅ This script includes chmod 644 broker.p12
               sh "ssh -o StrictHostKeyChecking=no $node 'bash $REMOTE_DIR/scripts/dir-setup.sh'"
             }
           }
@@ -161,28 +157,27 @@ pipeline {
       }
     }
 
-stage('Start Kafka Containers') {
-  steps {
-    sshagent(credentials: ['ec2-ssh-key']) {
-      withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-        script {
-          def nodes = [env.NODE1, env.NODE2, env.NODE3]
-          for (node in nodes) {
-            sh """
-              ssh -o StrictHostKeyChecking=no $node '
-                IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
-                echo "${env.NEXUS_PASS}" | docker login \$(echo \$IMAGE | cut -d/ -f1) -u "${env.NEXUS_USER}" --password-stdin &&
-                cd $REMOTE_DIR &&
-                docker-compose -f docker-compose.yml up -d
-              '
-            """
+    stage('Start Kafka Containers') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+            script {
+              def nodes = [env.NODE1, env.NODE2, env.NODE3]
+              for (node in nodes) {
+                sh """
+                  ssh -o StrictHostKeyChecking=no $node '
+                    IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
+                    echo "${env.NEXUS_PASS}" | docker login \$(echo \$IMAGE | cut -d/ -f1) -u "${env.NEXUS_USER}" --password-stdin &&
+                    cd $REMOTE_DIR &&
+                    docker-compose -f docker-compose.yml up -d
+                  '
+                """
+              }
+            }
           }
         }
       }
     }
-  }
-}
-
 
     stage('Verify Cluster & Create Admin User') {
       steps {
