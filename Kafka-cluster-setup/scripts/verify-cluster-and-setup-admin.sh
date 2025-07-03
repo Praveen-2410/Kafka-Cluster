@@ -12,7 +12,7 @@ CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
 BOOTSTRAP_SERVER="$BROKER1_IP:9092"
 ADMIN_USER="admin"
 ADMIN_PASSWORD="admin-password"
-CLIENT_CONFIG_PATH="/opt/kafka/config/client-properties/client-admin.properties"
+CLIENT_CONFIG_PATH="/opt/kafka/config/client-properties/admin.properties"
 
 echo "Waiting for container '$CONTAINER_NAME' to be running..."
 
