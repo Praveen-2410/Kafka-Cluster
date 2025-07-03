@@ -75,7 +75,17 @@ pipeline {
             for (node in nodes) {
               sh """
                 ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR'
-                scp -o StrictHostKeyChecking=no -r Kafka-cluster-setup/* $node:$REMOTE_DIR/
+                scp -o StrictHostKeyChecking=no -r \
+                  Kafka-cluster-setup/.env \
+                  Kafka-cluster-setup/config \
+                  Kafka-cluster-setup/docker-compose.yml.template \
+                  Kafka-cluster-setup/Dockerfile \
+                  Kafka-cluster-setup/image-tag.txt \
+                  Kafka-cluster-setup/Jenkinsfile \
+                  Kafka-cluster-setup/KafkaOperatorConsumer-du \
+                  Kafka-cluster-setup/NPCKafkaPortJourney \
+                  Kafka-cluster-setup/scripts \
+                  $node:$REMOTE_DIR/
                 ssh -o StrictHostKeyChecking=no $node 'chmod 644 $REMOTE_DIR/config/certs/*.p12'
               """
             }
