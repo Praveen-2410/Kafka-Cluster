@@ -9,18 +9,19 @@ set -e
 source .env
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
-BOOTSTRAP_SERVER="$BROKER1_IP:9092"
+BOOTSTRAP_INTERNAL="$BROKER1_IP:9092"  # Used for user creation and quorum check
+BOOTSTRAP_AUTH="$BROKER1_IP:9094"      # Used for ACLs (requires SASL_SSL auth)
 ADMIN_USER="admin"
 ADMIN_PASSWORD="admin-password"
 CLIENT_CONFIG_PATH="/opt/kafka/config/client-properties/admin.properties"
 
-echo "Waiting for container '$CONTAINER_NAME' to be running..."
+echo "🔍 Waiting for container '$CONTAINER_NAME' to be running..."
 
 # Wait up to 60s (12 × 5s) for the container to be running
 for attempt in {1..12}; do
   STATUS=$(sudo docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null || echo "false")
   if [[ "$STATUS" == "true" ]]; then
-    echo "Container $CONTAINER_NAME is running."
+    echo "✅ Container $CONTAINER_NAME is running."
     break
   else
     echo "⏳ Attempt $attempt: Container not running yet, retrying in 5s..."
@@ -34,14 +35,14 @@ if [[ "$STATUS" != "true" ]]; then
   exit 1
 fi
 
-echo "Verifying KRaft quorum status inside $CONTAINER_NAME..."
+echo "🔍 Verifying KRaft quorum status inside $CONTAINER_NAME..."
 
 # Retry quorum check (wait for controller election)
 QUORUM_READY=0
 for attempt in {1..5}; do
   set +e
   sudo docker exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-metadata-quorum.sh \
-    --bootstrap-server "$BOOTSTRAP_SERVER" describe --status > /tmp/quorum-status.txt
+    --bootstrap-server "$BOOTSTRAP_INTERNAL" describe --status > /tmp/quorum-status.txt
   STATUS=$?
   set -e
 
@@ -62,38 +63,37 @@ if [[ "$QUORUM_READY" -eq 0 ]]; then
 fi
 
 # Admin user check
-echo "Checking if admin user exists..."
+echo "👤 Checking if admin user exists..."
 USER_EXISTS=$(sudo docker exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-configs.sh \
-  --bootstrap-server "$BOOTSTRAP_SERVER" \
+  --bootstrap-server "$BOOTSTRAP_INTERNAL" \
   --describe --entity-type users 2>/dev/null | grep -c "User:$ADMIN_USER" || true)
 
 if [[ "$USER_EXISTS" -eq 0 ]]; then
-  echo "Creating admin user..."
+  echo "🔧 Creating admin user..."
   sudo docker exec -i "$CONTAINER_NAME" \
     /opt/kafka/bin/kafka-configs.sh \
-    --bootstrap-server "$BOOTSTRAP_SERVER" \
+    --bootstrap-server "$BOOTSTRAP_INTERNAL" \
     --alter --add-config "SCRAM-SHA-512=[iterations=4096,password=$ADMIN_PASSWORD]" \
     --entity-type users --entity-name "$ADMIN_USER"
-
   echo "✅ Admin user created."
 else
   echo "✅ Admin user already exists."
 fi
 
 # Admin ACL check
-echo "Checking if admin ACLs exist..."
+echo "🔐 Checking if admin ACLs exist..."
 ACL_EXISTS=$(sudo docker exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-acls.sh \
-  --bootstrap-server "$BOOTSTRAP_SERVER" \
+  --bootstrap-server "$BOOTSTRAP_AUTH" \
   --command-config "$CLIENT_CONFIG_PATH" \
   --list --principal User:"$ADMIN_USER" 2>/dev/null | grep -c "Operation: All" || true)
 
 if [[ "$ACL_EXISTS" -eq 0 ]]; then
-  echo "Granting full ACLs to admin user..."
+  echo "🔧 Granting full ACLs to admin user..."
   sudo docker exec -i "$CONTAINER_NAME" \
     /opt/kafka/bin/kafka-acls.sh \
-    --bootstrap-server "$BOOTSTRAP_SERVER" \
+    --bootstrap-server "$BOOTSTRAP_AUTH" \
     --command-config "$CLIENT_CONFIG_PATH" \
     --add \
     --allow-principal User:"$ADMIN_USER" \
