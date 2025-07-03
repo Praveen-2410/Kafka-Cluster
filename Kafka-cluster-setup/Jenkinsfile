@@ -75,13 +75,32 @@ stage('Distribute Files to All Nodes') {
         for (node in nodes) {
           sh """
             ssh -o StrictHostKeyChecking=no $node '
-              sudo rm -rf $REMOTE_DIR &&
-              mkdir -p $REMOTE_DIR &&
-              chmod 755 $REMOTE_DIR
+              BASE_DIR="$REMOTE_DIR"
+              CONFIG_DIR="\$BASE_DIR/config"
+              DATA_DIR="\$BASE_DIR/data"
+              CERT_DIR="\$CONFIG_DIR/certs"
+              SCRIPT_DIR="\$BASE_DIR/scripts"
+
+              for dir in "\$BASE_DIR" "\$CONFIG_DIR" "\$DATA_DIR" "\$CERT_DIR" "\$SCRIPT_DIR"; do
+                if [ ! -d "\$dir" ]; then
+                  mkdir -p "\$dir"
+                  echo "Created: \$dir"
+                fi
+              done
+
+              sudo chown -R ec2-user:ec2-user "\$BASE_DIR"
+              sudo chmod -R 755 "\$BASE_DIR"
             '
-            scp -o StrictHostKeyChecking=no -r Kafka-cluster-setup/* $node:$REMOTE_DIR/
+
+            scp -o StrictHostKeyChecking=no -r \
+              Kafka-cluster-setup/.env \
+              Kafka-cluster-setup/config \
+              Kafka-cluster-setup/docker-compose.yml.template \
+              Kafka-cluster-setup/image-tag.txt \
+              Kafka-cluster-setup/scripts \
+              $node:$REMOTE_DIR/
+
             ssh -o StrictHostKeyChecking=no $node '
-              chmod -R 755 $REMOTE_DIR &&
               chmod 644 $REMOTE_DIR/config/certs/*.p12
             '
           """
@@ -90,6 +109,7 @@ stage('Distribute Files to All Nodes') {
     }
   }
 }
+
 
 
     stage('Generate Configs (envsubst)') {
