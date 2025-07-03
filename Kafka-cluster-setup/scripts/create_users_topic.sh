@@ -75,7 +75,7 @@ topic_exists() {
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
-    --list 2>/dev/null | grep -wq "$1"
+    --list 2>/dev/null | grep -Fxq "$1"
 }
 
 create_topic() {
