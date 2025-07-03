@@ -9,10 +9,9 @@ set -e
 source .env
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
-BOOTSTRAP_SERVER="localhost:9092"
+BOOTSTRAP_SERVER="$BROKER_IP:9094"
 ADMIN_USER="admin"
 ADMIN_PASSWORD="admin-password"
-TRUSTSTORE_PATH="/opt/kafka/secrets/ca-truststore.p12"
 CLIENT_CONFIG_PATH="/opt/kafka/config/client-properties/client-admin.properties"
 
 # Step 1: Describe metadata quorum
