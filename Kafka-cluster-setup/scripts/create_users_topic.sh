@@ -3,7 +3,8 @@
 # Purpose: Create Kafka users, topics, and assign ACLs securely via container
 # Usage: Run from host – this script will exec into the Kafka container
 
-set -e
+# Safer error handling than `set -e`
+set -o pipefail
 
 # Load environment variables
 source .env
@@ -58,7 +59,7 @@ create_user() {
   local password=${USER_PASSWORDS[$user]}
 
   if user_exists "$user"; then
-    echo "✅ User '$user' already exists."
+    echo "✅ User '$user' already exists. Skipping creation."
   else
     echo "➕ Creating user: $user"
     sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
@@ -75,20 +76,23 @@ topic_exists() {
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
-    --list 2>/dev/null | grep -Fxq "$1"
+    --list 2>/dev/null | grep -wq "$1"
 }
 
 create_topic() {
   local topic=$1
   if topic_exists "$topic"; then
-    echo "✅ Topic '$topic' already exists."
+    echo "✅ Topic '$topic' already exists. Skipping creation."
   else
     echo "📦 Creating topic: $topic"
-    sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
+    if sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
       --bootstrap-server "$BOOTSTRAP_SERVER" \
       --command-config "$CONFIG" \
-      --create --topic "$topic" --partitions 3 --replication-factor 3
-    echo "✅ Topic '$topic' created."
+      --create --topic "$topic" --partitions 3 --replication-factor 3; then
+      echo "✅ Topic '$topic' created."
+    else
+      echo "⚠️ Warning: Failed to create topic '$topic'"
+    fi
   fi
 }
 
