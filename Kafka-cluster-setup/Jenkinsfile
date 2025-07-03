@@ -74,7 +74,11 @@ pipeline {
             def nodes = [env.NODE1, env.NODE2, env.NODE3]
             for (node in nodes) {
               sh """
-                ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR'
+                ssh -o StrictHostKeyChecking=no $node '
+                  sudo mkdir -p $REMOTE_DIR/config/certs $REMOTE_DIR/data $REMOTE_DIR/scripts &&
+                  sudo chown -R ec2-user:ec2-user $REMOTE_DIR &&
+                  sudo chmod -R 755 $REMOTE_DIR
+                '
                 scp -o StrictHostKeyChecking=no -r \
                   Kafka-cluster-setup/.env \
                   Kafka-cluster-setup/config \
@@ -84,19 +88,6 @@ pipeline {
                   $node:$REMOTE_DIR/
                 ssh -o StrictHostKeyChecking=no $node 'chmod 644 $REMOTE_DIR/config/certs/*.p12'
               """
-            }
-          }
-        }
-      }
-    }
-
-    stage('Run Dir Setup on All Nodes') {
-      steps {
-        sshagent(credentials: ['ec2-ssh-key']) {
-          script {
-            def nodes = [env.NODE1, env.NODE2, env.NODE3]
-            for (node in nodes) {
-              sh "ssh -o StrictHostKeyChecking=no $node 'bash $REMOTE_DIR/scripts/dir-setup.sh'"
             }
           }
         }
