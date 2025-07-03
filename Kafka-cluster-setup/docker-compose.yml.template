@@ -15,7 +15,7 @@ services:
         hard: 100000
     volumes:
       - ./data:/var/lib/kafka/data
-      - ./certs:/opt/kafka/secrets
+      - ./config/certs:/opt/kafka/secrets
       - ./config/server.properties:/opt/kafka/config/kraft/server.properties
       - ./config/client-properties:/opt/kafka/config/client-properties
       - ./config/client-ssl.properties:/opt/kafka/config/client-ssl.properties
