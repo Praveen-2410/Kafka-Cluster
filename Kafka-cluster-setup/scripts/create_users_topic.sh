@@ -1,13 +1,14 @@
 #!/bin/bash
 
-# Purpose: Create Kafka users, topics, and assign ACLs securely
-# Usage: Run inside broker container or from host with access to Kafka broker on port 9094
+# Purpose: Create Kafka users, topics, and assign ACLs securely via container
+# Usage: Run from host – this script will exec into the Kafka container
 
 set -e
 
 # Load environment variables
 source .env
 
+CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
 BOOTSTRAP_SERVER="${BROKER1_IP}:9094"
 CONFIG="/opt/kafka/config/client-properties/admin.properties"
 
@@ -35,10 +36,18 @@ declare -A WRITE_ACCESS=(
   ["du-pos-data"]="du etis"
 )
 
-# ---------- Functions ----------
+# ---------- Container Check ----------
+echo "🔍 Checking if container '$CONTAINER_NAME' is running..."
+STATUS=$(sudo docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null || echo "false")
+if [[ "$STATUS" != "true" ]]; then
+  echo "❌ ERROR: Container $CONTAINER_NAME is not running."
+  exit 1
+fi
+
+# ---------- Helper Functions ----------
 
 user_exists() {
-  /opt/kafka/bin/kafka-configs.sh \
+  sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
     --describe --entity-type users 2>/dev/null | grep -q "User:$1"
@@ -52,7 +61,7 @@ create_user() {
     echo "✅ User '$user' already exists."
   else
     echo "➕ Creating user: $user"
-    /opt/kafka/bin/kafka-configs.sh \
+    sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
       --bootstrap-server "$BOOTSTRAP_SERVER" \
       --command-config "$CONFIG" \
       --alter \
@@ -63,7 +72,7 @@ create_user() {
 }
 
 topic_exists() {
-  /opt/kafka/bin/kafka-topics.sh \
+  sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
     --list 2>/dev/null | grep -wq "$1"
@@ -75,7 +84,7 @@ create_topic() {
     echo "✅ Topic '$topic' already exists."
   else
     echo "📦 Creating topic: $topic"
-    /opt/kafka/bin/kafka-topics.sh \
+    sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
       --bootstrap-server "$BOOTSTRAP_SERVER" \
       --command-config "$CONFIG" \
       --create --topic "$topic" --partitions 3 --replication-factor 3
@@ -88,7 +97,7 @@ grant_acl() {
   local user=$2
   local operation=$3
   echo "🔐 Granting $operation access to user '$user' on topic '$topic'"
-  /opt/kafka/bin/kafka-acls.sh \
+  sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
     --add --allow-principal "User:$user" \
