@@ -50,7 +50,8 @@ user_exists() {
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
-    --describe --entity-type users 2>/dev/null | grep -q "User:$1"
+    --describe --entity-type users --entity-name "$1" 2>/dev/null |
+    grep -q "SCRAM-SHA-512"
 }
 
 create_user() {
@@ -80,29 +81,19 @@ topic_exists() {
 
 create_topic() {
   local topic=$1
-
   if topic_exists "$topic"; then
     echo "✅ Topic '$topic' already exists. Skipping."
-    return 0
+    return
   fi
 
   echo "📦 Creating topic: $topic"
-  set +e
-  CREATE_OUTPUT=$(sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
+  if sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
-    --create --topic "$topic" --partitions 3 --replication-factor 3 2>&1)
-  EXIT_CODE=$?
-  set -e
-
-  if echo "$CREATE_OUTPUT" | grep -q "Topic.*already exists"; then
-    echo "⚠️ Warning: Topic '$topic' already exists."
-  elif [[ $EXIT_CODE -ne 0 ]]; then
-    echo "❌ Failed to create topic '$topic':"
-    echo "$CREATE_OUTPUT"
-    exit $EXIT_CODE
-  else
+    --create --topic "$topic" --partitions 3 --replication-factor 3 2>/dev/null; then
     echo "✅ Topic '$topic' created."
+  else
+    echo "⚠️ Warning: Topic '$topic' may already exist or failed to create."
   fi
 }
 
@@ -114,13 +105,14 @@ acl_exists() {
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
     --list --topic "$topic" 2>/dev/null |
-    grep -q "User:$user.*operation=$operation"
+    grep -iq "User:$user.*operation=$operation"
 }
 
 grant_acl() {
   local topic=$1
   local user=$2
   local operation=$3
+
   if acl_exists "$topic" "$user" "$operation"; then
     echo "✅ ACL '$operation' for user '$user' on topic '$topic' already exists. Skipping."
   else
