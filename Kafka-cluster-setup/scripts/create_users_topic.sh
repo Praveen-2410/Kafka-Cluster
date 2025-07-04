@@ -50,7 +50,7 @@ user_exists() {
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
-    --describe --entity-type users 2>/dev/null | grep -q "User:$1"
+    --describe --entity-type users --entity-name "$1" 2>/dev/null | grep -q "SCRAM-SHA-512"
 }
 
 create_user() {
@@ -75,7 +75,7 @@ topic_exists() {
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP_SERVER" \
     --command-config "$CONFIG" \
-    --list 2>/dev/null | grep -wq "$1"
+    --list 2>/dev/null | grep -Fxq "$1"
 }
 
 create_topic() {
@@ -84,15 +84,11 @@ create_topic() {
     echo "✅ Topic '$topic' already exists. Skipping."
   else
     echo "📦 Creating topic: $topic"
-    if sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
+    sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
       --bootstrap-server "$BOOTSTRAP_SERVER" \
       --command-config "$CONFIG" \
-      --create --topic "$topic" --partitions 3 --replication-factor 3 2>&1 | tee /tmp/topic-create.log |
-      grep -q "Topic.*already exists"; then
-      echo "⚠️ Warning: Topic '$topic' already exists."
-    else
-      echo "✅ Topic '$topic' created."
-    fi
+      --create --topic "$topic" --partitions 3 --replication-factor 3
+    echo "✅ Topic '$topic' created."
   fi
 }
 
