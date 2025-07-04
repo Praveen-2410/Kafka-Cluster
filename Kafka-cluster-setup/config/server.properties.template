@@ -1,7 +1,7 @@
 # KRaft & Cluster Configuration
 node.id=$NODE_ID
 process.roles=broker,controller
-controller.quorum.voters=1@$BROKER1_IP:$BROKER1_CONTROLLER_PORT,2@$BROKER2_IP:$BROKER2_CONTROLLER_PORT,3@$BROKER3_IP:$BROKER3_CONTROLLER_PORT
+controller.quorum.voters=1@$BROKER1_IP:$CONTROLLER_PORT,2@$BROKER2_IP:$CONTROLLER_PORT,3@$BROKER3_IP:$CONTROLLER_PORT
 
 # Listener & Protocol Configuration
 listeners=INTERNAL://0.0.0.0:$INTERNAL_PORT,EXTERNAL://0.0.0.0:$EXTERNAL_PORT,CONTROLLER://0.0.0.0:$CONTROLLER_PORT
