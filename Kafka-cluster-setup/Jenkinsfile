@@ -83,7 +83,7 @@ pipeline {
 
                   for dir in "\$BASE_DIR" "\$CONFIG_DIR" "\$DATA_DIR" "\$CERT_DIR" "\$SCRIPT_DIR"; do
                     if [ ! -d "\$dir" ]; then
-                      mkdir -p "\$dir"
+                      sudo mkdir -p "\$dir"
                       echo "Created: \$dir"
                     fi
                   done
