@@ -114,4 +114,42 @@ grant_acl() {
   if acl_exists "$topic" "$user" "$operation"; then
     echo "✅ ACL '$operation' for user '$user' on topic '$topic' already exists. Skipping."
   else
-    echo "🔐 Granting $operation access to user '$user' on
+    echo "🔐 Granting $operation access to user '$user' on topic '$topic'"
+    sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
+      --bootstrap-server "$BOOTSTRAP_SERVER" \
+      --command-config "$CONFIG" \
+      --add --allow-principal "User:$user" \
+      --operation "$operation" \
+      --topic "$topic"
+  fi
+}
+
+# ---------- Execution ----------
+
+echo "🚀 Starting Kafka User, Topic, and ACL Setup"
+
+# Step 1: Create Users
+for user in "${!USER_PASSWORDS[@]}"; do
+  create_user "$user"
+done
+
+# Step 2: Create Topics
+for topic in "${TOPICS[@]}"; do
+  create_topic "$topic"
+done
+
+# Step 3: Apply Read ACLs
+for topic in "${!READ_ACCESS[@]}"; do
+  for user in ${READ_ACCESS[$topic]}; do
+    grant_acl "$topic" "$user" Read
+  done
+done
+
+# Step 4: Apply Write ACLs
+for topic in "${!WRITE_ACCESS[@]}"; do
+  for user in ${WRITE_ACCESS[$topic]}; do
+    grant_acl "$topic" "$user" Write
+  done
+done
+
+echo "🎉 Kafka user, topic, and ACL setup complete."
