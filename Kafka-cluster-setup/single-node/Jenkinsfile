@@ -2,6 +2,191 @@ pipeline {
   agent any
 
   environment {
+    REMOTE_HOST = "ec2-user@172.31.28.136"
+    REMOTE_DIR = "/home/ec2-user/kafka-cluster"
+  }
+
+  stages {
+
+    stage('Generate Dynamic Image Tag') {
+      steps {
+        script {
+          def timestamp = sh(script: "date +%Y%m%d%H%M", returnStdout: true).trim()
+          env.IMAGE_TAG = "npc-uae-kafka-single-node-${timestamp}:latest"
+        }
+      }
+    }
+
+    stage('Checkout Git Repo') {
+      steps {
+        git branch: 'main', url: 'https://github.com/Praveen-2410/Kafka-Cluster.git'
+      }
+    }
+
+    stage('Inject Image Tag') {
+      steps {
+        dir('Kafka-cluster-setup') {
+          script {
+            def envVars = readFile('.env').split('\n')
+            def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
+            def nexusHost = nexusHostLine?.split('=')[-1]?.trim()
+
+            if (!nexusHost) {
+              error "NEXUS_HOST not defined in .env file!"
+            }
+
+            env.IMAGE_FULL = "${nexusHost}/uae-kafka/${env.IMAGE_TAG}"
+            echo "Using image: ${env.IMAGE_FULL}"
+            writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
+          }
+        }
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        dir('Kafka-cluster-setup') {
+          sh 'docker build -t $(cat image-tag.txt) .'
+        }
+      }
+    }
+
+    stage('Push to Nexus') {
+      steps {
+        dir('Kafka-cluster-setup') {
+          withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+            sh '''
+              IMAGE=$(cat image-tag.txt)
+              echo "$NEXUS_PASS" | docker login $(echo $IMAGE | cut -d/ -f1) -u "$NEXUS_USER" --password-stdin
+              docker push $IMAGE
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Create Directories and Copy Files') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          sh """
+            ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
+              mkdir -p $REMOTE_DIR/{broker-1/config,broker-1/data,broker-2/config,broker-2/data,broker-3/config,broker-3/data}
+              mkdir -p $REMOTE_DIR/shared/{certs-single-node,jaas,client-properties,scripts}
+              sudo chown -R ec2-user:ec2-user $REMOTE_DIR
+              sudo chmod -R 755 $REMOTE_DIR
+            '
+
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/.env \
+              $REMOTE_HOST:$REMOTE_DIR/
+
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/image-tag.txt \
+              $REMOTE_HOST:$REMOTE_DIR/
+
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/single-node/docker-compose.single-node.yml.template \
+              $REMOTE_HOST:$REMOTE_DIR/docker-compose.yml
+
+            scp -o StrictHostKeyChecking=no -r \
+              Kafka-cluster-setup/single-node/certs/* \
+              $REMOTE_HOST:$REMOTE_DIR/shared/certs-single-node/
+
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/config/kafka_jaas.conf \
+              Kafka-cluster-setup/config/kafka_admin_jaas.conf \
+              $REMOTE_HOST:$REMOTE_DIR/shared/jaas/
+
+            scp -o StrictHostKeyChecking=no -r \
+              Kafka-cluster-setup/config/client-properties/* \
+              $REMOTE_HOST:$REMOTE_DIR/shared/client-properties/
+
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/scripts/verify-cluster-and-setup-admin.sh \
+              Kafka-cluster-setup/scripts/create_users_topic.sh \
+              Kafka-cluster-setup/single-node/scripts/generate-configs-single-node.sh \
+              $REMOTE_HOST:$REMOTE_DIR/shared/scripts/
+
+            ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
+              chmod +x $REMOTE_DIR/shared/scripts/*.sh
+              chmod 644 $REMOTE_DIR/shared/certs-single-node/*.p12
+            '
+          """
+        }
+      }
+    }
+
+    stage('Generate Configs (envsubst)') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'cd $REMOTE_DIR && bash shared/scripts/generate-configs-single-node.sh'"
+        }
+      }
+    }
+
+    stage('Format Cluster Storage') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          script {
+            def clusterId = sh(script: "docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
+            echo "Generated Cluster ID: ${clusterId}"
+
+            for (i in 1..3) {
+              sh """
+              ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
+                docker run --rm \
+                  -v $REMOTE_DIR/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties \
+                  -v $REMOTE_DIR/broker-${i}/data:/var/lib/kafka/data \
+                  apache/kafka:4.0.0 \
+                  /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties
+              '
+              """
+            }
+          }
+        }
+      }
+    }
+
+    stage('Start Kafka Brokers') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+            sh """#!/bin/bash
+ssh -o StrictHostKeyChecking=no $REMOTE_HOST <<'EOF'
+IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
+REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
+echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
+cd $REMOTE_DIR
+docker-compose up -d
+EOF
+"""
+          }
+        }
+      }
+    }
+
+    stage('Verify Cluster & Create Admin User') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'cd $REMOTE_DIR && bash shared/scripts/verify-cluster-and-setup-admin.sh'"
+        }
+      }
+    }
+
+    stage('Create Topics, Users & ACLs') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'cd $REMOTE_DIR && bash shared/scripts/create_users_topic.sh'"
+        }
+      }
+    }
+
+  }
+}
+pipeline {
+  agent any
+
+  environment {
     REMOTE_HOST = "ec2-user@10.90.80.70"
     REMOTE_DIR = "/home/ec2-user/kafka-cluster"
   }
