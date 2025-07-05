@@ -82,7 +82,7 @@ pipeline {
 
             scp -o StrictHostKeyChecking=no \
               Kafka-cluster-setup/single-node/docker-compose.single-node.yml.template \
-              $REMOTE_HOST:$REMOTE_DIR/docker-compose.yml
+              $REMOTE_HOST:$REMOTE_DIR/docker-compose.single-node.yml.template
 
             scp -o StrictHostKeyChecking=no \
               Kafka-cluster-setup/single-node/config/server.properties.template \
