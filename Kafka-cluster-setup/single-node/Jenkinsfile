@@ -84,6 +84,10 @@ pipeline {
               Kafka-cluster-setup/single-node/docker-compose.single-node.yml.template \
               $REMOTE_HOST:$REMOTE_DIR/docker-compose.yml
 
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/single-node/config/server.properties.template \
+              $REMOTE_HOST:$REMOTE_DIR/shared/
+
             scp -o StrictHostKeyChecking=no -r \
               Kafka-cluster-setup/single-node/certs-single-node/* \
               $REMOTE_HOST:$REMOTE_DIR/shared/certs-single-node/
