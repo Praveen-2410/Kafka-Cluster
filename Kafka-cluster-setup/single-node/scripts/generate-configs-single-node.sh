@@ -6,7 +6,7 @@ set -e
 export $(grep -v '^#' .env | xargs)
 
 # Paths
-TEMPLATE_PATH="single-node/config/server.properties.template"
+TEMPLATE_PATH="shared/server.properties.template"
 BASE_DIR=$(pwd)
 
 # Broker details (arrays for clarity)
