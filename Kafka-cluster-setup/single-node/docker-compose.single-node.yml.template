@@ -1,0 +1,76 @@
+version: "3"
+services:
+  broker-1:
+    image: ${IMAGE_FULL}
+    container_name: ${SINGLE_NODE_CONTAINER_NAME_1}
+    ports:
+      - "${BROKER1_INTERNAL_PORT}:${BROKER1_INTERNAL_PORT}"
+      - "${BROKER1_CONTROLLER_PORT}:${BROKER1_CONTROLLER_PORT}"
+      - "${BROKER1_EXTERNAL_PORT}:${BROKER1_EXTERNAL_PORT}"
+    mem_limit: 2g
+    ulimits:
+      nofile:
+        soft: 100000
+        hard: 100000
+    volumes:
+      - ./broker-1/data:/var/lib/kafka/data
+      - ./broker-1/config/server.properties:/opt/kafka/config/kraft/server.properties
+      - ./shared/certs-single-node:/opt/kafka/secrets
+      - ./shared/jaas/kafka_jaas.conf:/opt/kafka/config/jaas/kafka_jaas.conf
+      - ./shared/client-properties:/opt/kafka/config/client-properties
+      - ./shared/scripts:/opt/kafka/config/scripts
+    environment:
+      - KAFKA_OPTS=-Djava.security.auth.login.config=/opt/kafka/config/jaas/kafka_jaas.conf
+      - KAFKA_HEAP_OPTS=-Xms1g -Xmx1g
+      - KAFKA_JVM_PERFORMANCE_OPTS=-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication
+    command: ["/opt/kafka/bin/kafka-server-start.sh", "/opt/kafka/config/kraft/server.properties"]
+
+  broker-2:
+    image: ${IMAGE_FULL}
+    container_name: ${SINGLE_NODE_CONTAINER_NAME_2}
+    ports:
+      - "${BROKER2_INTERNAL_PORT}:${BROKER2_INTERNAL_PORT}"
+      - "${BROKER2_CONTROLLER_PORT}:${BROKER2_CONTROLLER_PORT}"
+      - "${BROKER2_EXTERNAL_PORT}:${BROKER2_EXTERNAL_PORT}"
+    mem_limit: 2g
+    ulimits:
+      nofile:
+        soft: 100000
+        hard: 100000
+    volumes:
+      - ./broker-2/data:/var/lib/kafka/data
+      - ./broker-2/config/server.properties:/opt/kafka/config/kraft/server.properties
+      - ./shared/certs-single-node:/opt/kafka/secrets
+      - ./shared/jaas/kafka_jaas.conf:/opt/kafka/config/jaas/kafka_jaas.conf
+      - ./shared/client-properties:/opt/kafka/config/client-properties
+      - ./shared/scripts:/opt/kafka/config/scripts
+    environment:
+      - KAFKA_OPTS=-Djava.security.auth.login.config=/opt/kafka/config/jaas/kafka_jaas.conf
+      - KAFKA_HEAP_OPTS=-Xms1g -Xmx1g
+      - KAFKA_JVM_PERFORMANCE_OPTS=-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication
+    command: ["/opt/kafka/bin/kafka-server-start.sh", "/opt/kafka/config/kraft/server.properties"]
+
+  broker-3:
+    image: ${IMAGE_FULL}
+    container_name: ${SINGLE_NODE_CONTAINER_NAME_3}
+    ports:
+      - "${BROKER3_INTERNAL_PORT}:${BROKER3_INTERNAL_PORT}"
+      - "${BROKER3_CONTROLLER_PORT}:${BROKER3_CONTROLLER_PORT}"
+      - "${BROKER3_EXTERNAL_PORT}:${BROKER3_EXTERNAL_PORT}"
+    mem_limit: 2g
+    ulimits:
+      nofile:
+        soft: 100000
+        hard: 100000
+    volumes:
+      - ./broker-3/data:/var/lib/kafka/data
+      - ./broker-3/config/server.properties:/opt/kafka/config/kraft/server.properties
+      - ./shared/certs-single-node:/opt/kafka/secrets
+      - ./shared/jaas/kafka_jaas.conf:/opt/kafka/config/jaas/kafka_jaas.conf
+      - ./shared/client-properties:/opt/kafka/config/client-properties
+      - ./shared/scripts:/opt/kafka/config/scripts
+    environment:
+      - KAFKA_OPTS=-Djava.security.auth.login.config=/opt/kafka/config/jaas/kafka_jaas.conf
+      - KAFKA_HEAP_OPTS=-Xms1g -Xmx1g
+      - KAFKA_JVM_PERFORMANCE_OPTS=-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication
+    command: ["/opt/kafka/bin/kafka-server-start.sh", "/opt/kafka/config/kraft/server.properties"]

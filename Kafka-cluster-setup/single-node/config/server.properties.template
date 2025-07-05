@@ -1,0 +1,50 @@
+# KRaft & Cluster Configuration
+node.id=$NODE_ID
+process.roles=broker,controller
+controller.quorum.voters=1@$SINGLE_NODE_IP:$BROKER1_CONTROLLER_PORT,2@$SINGLE_NODE_IP:$BROKER2_CONTROLLER_PORT,3@$SINGLE_NODE_IP:$BROKER3_CONTROLLER_PORT
+
+# Listener & Protocol Configuration
+listeners=INTERNAL://0.0.0.0:${INTERNAL_PORT},EXTERNAL://0.0.0.0:${EXTERNAL_PORT},CONTROLLER://0.0.0.0:${CONTROLLER_PORT}
+advertised.listeners=INTERNAL://${SINGLE_NODE_IP}:${INTERNAL_PORT},EXTERNAL://${SINGLE_NODE_IP}:${EXTERNAL_PORT},CONTROLLER://${SINGLE_NODE_IP}:${CONTROLLER_PORT}
+listener.security.protocol.map=INTERNAL:PLAINTEXT,EXTERNAL:SASL_SSL,CONTROLLER:PLAINTEXT
+inter.broker.listener.name=INTERNAL
+controller.listener.names=CONTROLLER
+
+# TLS / SSL Configuration (for EXTERNAL)
+ssl.keystore.location=/opt/kafka/secrets/broker.p12
+ssl.keystore.password=password
+ssl.key.password=password
+ssl.keystore.type=PKCS12
+ssl.truststore.location=/opt/kafka/secrets/ca-truststore.p12
+ssl.truststore.type=PKCS12
+ssl.client.auth=none
+
+# Topic Configuration
+num.partitions=3
+default.replication.factor=3
+min.insync.replicas=2
+auto.create.topics.enable=false
+
+authorizer.failure.retry.interval.ms=1000
+
+# Storage Configuration & Retention & Performance
+#log.dirs=/var/lib/kafka/data-1,/var/lib/kafka/data-2,/var/lib/kafka/data-3
+log.dirs=/var/lib/kafka/data
+log.retention.hours=2160
+log.retention.check.interval.ms=300000
+log.segment.bytes=1073741824
+
+# Add supported SASL mechanisms
+sasl.enabled.mechanisms=SCRAM-SHA-512
+
+# Enable SASL
+listener.name.external.scram-sha-512.sasl.enabled.mechanisms=SCRAM-SHA-512
+
+# Optional: define super users
+super.users=User:ANONYMOUS
+
+# Enable Kafka's built-in authorization mechanism
+authorizer.class.name=org.apache.kafka.metadata.authorizer.StandardAuthorizer
+
+# (Optional) Control whether to log authorization decisions
+allow.everyone.if.no.acl.found=true
