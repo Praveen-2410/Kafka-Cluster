@@ -71,7 +71,7 @@ pipeline {
                 sudo mkdir -p $REMOTE_DIR/broker-${i}/config
                 sudo mkdir -p $REMOTE_DIR/broker-${i}/data
               done
-              mkdir -p $REMOTE_DIR/shared/{certs-single-node,jaas,client-properties,scripts}
+              sudo mkdir -p $REMOTE_DIR/shared/{certs-single-node,jaas,client-properties,scripts}
               sudo chown -R ec2-user:ec2-user $REMOTE_DIR
               sudo chmod -R 755 $REMOTE_DIR
             '''
