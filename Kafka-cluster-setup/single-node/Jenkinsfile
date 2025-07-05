@@ -68,8 +68,8 @@ pipeline {
           script {
             def setupCommands = '''
               for i in 1 2 3; do
-                mkdir -p $REMOTE_DIR/broker-${i}/config
-                mkdir -p $REMOTE_DIR/broker-${i}/data
+                sudo mkdir -p $REMOTE_DIR/broker-${i}/config
+                sudo mkdir -p $REMOTE_DIR/broker-${i}/data
               done
               mkdir -p $REMOTE_DIR/shared/{certs-single-node,jaas,client-properties,scripts}
               sudo chown -R ec2-user:ec2-user $REMOTE_DIR
