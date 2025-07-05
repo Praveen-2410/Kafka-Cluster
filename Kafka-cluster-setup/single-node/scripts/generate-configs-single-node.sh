@@ -7,6 +7,8 @@ export $(grep -v '^#' .env | xargs)
 
 # Paths
 TEMPLATE_PATH="shared/server.properties.template"
+COMPOSE_TEMPLATE_PATH="docker-compose.single-node.yml.template"
+COMPOSE_OUTPUT_PATH="docker-compose.yml"
 BASE_DIR=$(pwd)
 
 # Broker details (arrays for clarity)
@@ -17,7 +19,7 @@ INTERNAL_PORTS=($BROKER1_INTERNAL_PORT $BROKER2_INTERNAL_PORT $BROKER3_INTERNAL_
 CONTROLLER_PORTS=($BROKER1_CONTROLLER_PORT $BROKER2_CONTROLLER_PORT $BROKER3_CONTROLLER_PORT)
 EXTERNAL_PORTS=($BROKER1_EXTERNAL_PORT $BROKER2_EXTERNAL_PORT $BROKER3_EXTERNAL_PORT)
 
-# Generate config for each broker
+# Generate server.properties for each broker
 for i in 0 1 2; do
   BROKER_ID=${BROKER_IDS[$i]}
   BROKER_NAME="broker-$((i + 1))"
@@ -36,8 +38,11 @@ for i in 0 1 2; do
   export CONTROLLER_PORT=$CONTROLLER_PORT
   export EXTERNAL_PORT=$EXTERNAL_PORT
 
-  # Replace template variables
   envsubst < "$TEMPLATE_PATH" > "$CONFIG_DIR/server.properties"
 done
 
-echo "✅ All broker configs generated under broker-*/config/"
+# Generate docker-compose.yml
+echo "Generating docker-compose.yml from $COMPOSE_TEMPLATE_PATH..."
+envsubst < "$COMPOSE_TEMPLATE_PATH" > "$COMPOSE_OUTPUT_PATH"
+
+echo "✅ All broker configs and docker-compose.yml generated successfully."
