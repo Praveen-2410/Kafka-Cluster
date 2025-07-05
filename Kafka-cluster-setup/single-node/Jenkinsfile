@@ -65,53 +65,54 @@ pipeline {
     stage('Distribute Files to Node') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          sh """
-            ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
+          script {
+            def setupCommands = '''
               for i in 1 2 3; do
-                mkdir -p $REMOTE_DIR/broker-\${i}/{{config,data}}
+                mkdir -p $REMOTE_DIR/broker-${i}/config
+                mkdir -p $REMOTE_DIR/broker-${i}/data
               done
               mkdir -p $REMOTE_DIR/shared/{certs-single-node,jaas,client-properties,scripts}
               sudo chown -R ec2-user:ec2-user $REMOTE_DIR
               sudo chmod -R 755 $REMOTE_DIR
-            '
+            '''
+            sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST '${setupCommands}'"
 
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/.env \
-              Kafka-cluster-setup/image-tag.txt \
-              $REMOTE_HOST:$REMOTE_DIR/
+            sh """
+              scp -o StrictHostKeyChecking=no \
+                Kafka-cluster-setup/.env \
+                Kafka-cluster-setup/image-tag.txt \
+                $REMOTE_HOST:$REMOTE_DIR/
 
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/single-node/docker-compose.single-node.yml.template \
-              $REMOTE_HOST:$REMOTE_DIR/docker-compose.single-node.yml.template
+              scp -o StrictHostKeyChecking=no \
+                Kafka-cluster-setup/single-node/docker-compose.single-node.yml.template \
+                $REMOTE_HOST:$REMOTE_DIR/docker-compose.single-node.yml.template
 
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/single-node/config/server.properties.template \
-              $REMOTE_HOST:$REMOTE_DIR/shared/
+              scp -o StrictHostKeyChecking=no \
+                Kafka-cluster-setup/single-node/config/server.properties.template \
+                $REMOTE_HOST:$REMOTE_DIR/shared/
 
-            scp -o StrictHostKeyChecking=no -r \
-              Kafka-cluster-setup/single-node/certs-single-node/* \
-              $REMOTE_HOST:$REMOTE_DIR/shared/certs-single-node/
+              scp -o StrictHostKeyChecking=no -r \
+                Kafka-cluster-setup/single-node/certs-single-node/* \
+                $REMOTE_HOST:$REMOTE_DIR/shared/certs-single-node/
 
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/config/kafka_jaas.conf \
-              Kafka-cluster-setup/config/kafka_admin_jaas.conf \
-              $REMOTE_HOST:$REMOTE_DIR/shared/jaas/
+              scp -o StrictHostKeyChecking=no \
+                Kafka-cluster-setup/config/kafka_jaas.conf \
+                Kafka-cluster-setup/config/kafka_admin_jaas.conf \
+                $REMOTE_HOST:$REMOTE_DIR/shared/jaas/
 
-            scp -o StrictHostKeyChecking=no -r \
-              Kafka-cluster-setup/config/client-properties/* \
-              $REMOTE_HOST:$REMOTE_DIR/shared/client-properties/
+              scp -o StrictHostKeyChecking=no -r \
+                Kafka-cluster-setup/config/client-properties/* \
+                $REMOTE_HOST:$REMOTE_DIR/shared/client-properties/
 
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/scripts/verify-cluster-and-setup-admin.sh \
-              Kafka-cluster-setup/scripts/create_users_topic.sh \
-              Kafka-cluster-setup/single-node/scripts/generate-configs-single-node.sh \
-              $REMOTE_HOST:$REMOTE_DIR/shared/scripts/
+              scp -o StrictHostKeyChecking=no \
+                Kafka-cluster-setup/scripts/verify-cluster-and-setup-admin.sh \
+                Kafka-cluster-setup/scripts/create_users_topic.sh \
+                Kafka-cluster-setup/single-node/scripts/generate-configs-single-node.sh \
+                $REMOTE_HOST:$REMOTE_DIR/shared/scripts/
+            """
 
-            ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
-              chmod +x $REMOTE_DIR/shared/scripts/*.sh
-              chmod 644 $REMOTE_DIR/shared/certs-single-node/*.p12
-            '
-          """
+            sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'chmod +x $REMOTE_DIR/shared/scripts/*.sh && chmod 644 $REMOTE_DIR/shared/certs-single-node/*.p12'"
+          }
         }
       }
     }
