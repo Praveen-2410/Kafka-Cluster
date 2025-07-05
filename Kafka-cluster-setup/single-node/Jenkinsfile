@@ -124,6 +124,14 @@ pipeline {
       }
     }
 
+    stage('Generate Docker Compose') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'cd $REMOTE_DIR && envsubst < docker-compose.single-node.yml.template > docker-compose.yml'"
+        }
+      }
+    }
+
     stage('Format Cluster Storage') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
