@@ -66,18 +66,17 @@ pipeline {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
           script {
-            def setupCommands = '''
-              for i in 1 2 3; do
-                sudo mkdir -p ${REMOTE_DIR}/broker-${i}/config
-                sudo mkdir -p ${REMOTE_DIR}/broker-${i}/data
-              done
-              sudo mkdir -p ${REMOTE_DIR}/shared/{certs-single-node,jaas,client-properties,scripts}
-              sudo chown -R ec2-user:ec2-user ${REMOTE_DIR}
-              sudo chmod -R 755 ${REMOTE_DIR}
-            '''
-            sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} \"${setupCommands}\""
-
             sh """
+              ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
+                for i in 1 2 3; do
+                  sudo mkdir -p ${REMOTE_DIR}/broker-${i}/config
+                  sudo mkdir -p ${REMOTE_DIR}/broker-${i}/data
+                done
+                sudo mkdir -p ${REMOTE_DIR}/shared/{certs-single-node,jaas,client-properties,scripts}
+                sudo chown -R ec2-user:ec2-user ${REMOTE_DIR}
+                sudo chmod -R 755 ${REMOTE_DIR}
+              '
+
               scp -o StrictHostKeyChecking=no \
                 Kafka-cluster-setup/.env \
                 Kafka-cluster-setup/image-tag.txt \
@@ -85,14 +84,14 @@ pipeline {
 
               scp -o StrictHostKeyChecking=no \
                 Kafka-cluster-setup/single-node/docker-compose.single-node.yml.template \
-                ${REMOTE_HOST}:${REMOTE_DIR}/docker-compose.single-node.yml.template
+                ${REMOTE_HOST}:${REMOTE_DIR}/
 
               scp -o StrictHostKeyChecking=no \
                 Kafka-cluster-setup/single-node/config/server.properties.template \
                 ${REMOTE_HOST}:${REMOTE_DIR}/shared/
 
               scp -o StrictHostKeyChecking=no -r \
-                Kafka-cluster-setup/single-node/certs-single-node/* \
+                Kafka-cluster-setup/single-node/certs/* \
                 ${REMOTE_HOST}:${REMOTE_DIR}/shared/certs-single-node/
 
               scp -o StrictHostKeyChecking=no \
@@ -109,26 +108,18 @@ pipeline {
                 Kafka-cluster-setup/scripts/create_users_topic.sh \
                 Kafka-cluster-setup/single-node/scripts/generate-configs-single-node.sh \
                 ${REMOTE_HOST}:${REMOTE_DIR}/shared/scripts/
-            """
 
-            sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'chmod +x ${REMOTE_DIR}/shared/scripts/*.sh && chmod 644 ${REMOTE_DIR}/shared/certs-single-node/*.p12'"
+              ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'chmod +x ${REMOTE_DIR}/shared/scripts/*.sh && chmod 644 ${REMOTE_DIR}/shared/certs-single-node/*.p12'
+            """
           }
         }
       }
     }
 
-    stage('Generate Configs') {
+    stage('Generate Configs & Compose') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
           sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'cd ${REMOTE_DIR} && bash shared/scripts/generate-configs-single-node.sh'"
-        }
-      }
-    }
-
-    stage('Generate Docker Compose') {
-      steps {
-        sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'cd ${REMOTE_DIR} && envsubst < docker-compose.single-node.yml.template > docker-compose.yml'"
         }
       }
     }
@@ -151,12 +142,6 @@ pipeline {
             def clusterIds = sh(script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} \"${clusterIdCmd}\"", returnStdout: true).trim()
             def uniqueIds = clusterIds.tokenize(',').unique()
             def newClusterId = sh(script: "sudo docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
-
-            if (uniqueIds.size() > 1) {
-              echo "Multiple cluster IDs found. Reformatting all brokers."
-            } else {
-              echo "Single or no cluster ID found. Formatting brokers."
-            }
 
             for (int i = 1; i <= 3; i++) {
               sh """
