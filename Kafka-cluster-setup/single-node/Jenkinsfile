@@ -188,7 +188,7 @@ pipeline {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
             sh """#!/bin/bash
 ssh -o StrictHostKeyChecking=no $REMOTE_HOST <<'EOF'
-IMAGE=\$(cat $REMOTE_DIR/shared/image-tag.txt)
+IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
 echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
 cd $REMOTE_DIR
