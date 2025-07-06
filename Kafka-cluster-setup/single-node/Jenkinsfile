@@ -68,16 +68,13 @@ pipeline {
             sh """
               ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
                 for i in 1 2 3; do
-                  sudo mkdir -p ${REMOTE_DIR}/broker-\${i}/config
-                  sudo mkdir -p ${REMOTE_DIR}/broker-\${i}/data
+                  mkdir -p ${REMOTE_DIR}/broker-\${i}/config
+                  mkdir -p ${REMOTE_DIR}/broker-\${i}/data
                 done
-                sudo mkdir -p ${REMOTE_DIR}/shared/{certs-single-node,jaas,client-properties,scripts}
-                sudo chown -R ec2-user:ec2-user ${REMOTE_DIR}
-                sudo chmod -R 755 ${REMOTE_DIR}
+                mkdir -p ${REMOTE_DIR}/shared/{certs-single-node,jaas,client-properties,scripts}
+                chmod -R 755 ${REMOTE_DIR}
               '
-            """
 
-            sh """
               scp -o StrictHostKeyChecking=no \
                 Kafka-cluster-setup/.env \
                 Kafka-cluster-setup/image-tag.txt \
@@ -133,30 +130,31 @@ pipeline {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
           script {
-            // Get cluster ID status from remote
-            def clusterIdCheckCmd = '''
+            def checkCmd = '''
               ids=""
               for i in 1 2 3; do
                 f="${REMOTE_DIR}/broker-${i}/data/meta.properties"
                 if [ -f "$f" ]; then
-                  id=$(grep "cluster.id=" "$f" | cut -d= -f2)
+                  id=$(grep cluster.id= "$f" | cut -d= -f2)
                   [ -n "$id" ] && ids+="$id,"
                 fi
               done
               echo "${ids%,}"
             '''
-            def clusterIds = sh(script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '${clusterIdCheckCmd.replace('${REMOTE_DIR}', env.REMOTE_DIR)}'", returnStdout: true).trim()
-            def uniqueIds = clusterIds.tokenize(',').unique()
+            def clusterIds = sh(script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '${checkCmd}'", returnStdout: true).trim()
+            def uniqueIds = clusterIds.tokenize(',').findAll { it }.unique()
 
-            // Generate cluster ID remotely
-            def newClusterId = sh(
-              script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid'",
-              returnStdout: true
-            ).trim()
+            if (uniqueIds.size() > 1) {
+              echo "Mismatched cluster IDs found. Backing up..."
+              def timestamp = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
+              for (int i = 1; i <= 3; i++) {
+                sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'mv ${REMOTE_DIR}/broker-${i}/data ${REMOTE_DIR}/broker-${i}/data-backup-${timestamp} && mkdir -p ${REMOTE_DIR}/broker-${i}/data'"
+              }
+            }
 
-            echo "Using Cluster ID: ${newClusterId}"
+            def newClusterId = sh(script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid'", returnStdout: true).trim()
+            echo "Generated Cluster ID: ${newClusterId}"
 
-            // Format each broker
             for (int i = 1; i <= 3; i++) {
               sh """
                 ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
@@ -181,7 +179,7 @@ pipeline {
               ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
                 IMAGE=\$(cat ${REMOTE_DIR}/image-tag.txt)
                 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
-                echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
+                echo \"\$NEXUS_PASS\" | docker login \$REGISTRY -u \"\$NEXUS_USER\" --password-stdin
                 cd ${REMOTE_DIR}
                 docker-compose -f docker-compose.yml up -d
               '
