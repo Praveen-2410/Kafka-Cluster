@@ -192,31 +192,34 @@ stage('Start Kafka Containers') {
           passwordVariable: 'NEXUS_PASS'
         )
       ]) {
-        sh """#!/bin/bash
-ssh -o StrictHostKeyChecking=no $REMOTE_HOST <<EOF
+        sh '''#!/bin/bash
+ssh -o StrictHostKeyChecking=no $REMOTE_HOST <<'ENDSSH'
 set -e
 
-echo "🔍 Reading image tag..."
-IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
-REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
+# Verify file exists and is readable
+if [ ! -r "$HOME/kafka-cluster/image-tag.txt" ]; then
+  echo "❌ ERROR: Cannot read image-tag.txt"
+  ls -l $HOME/kafka-cluster
+  exit 1
+fi
 
-echo "📦 IMAGE: \$IMAGE"
-echo "🔗 REGISTRY: \$REGISTRY"
+# Read image and registry
+IMAGE=$(cat $HOME/kafka-cluster/image-tag.txt)
+REGISTRY=$(echo $IMAGE | cut -d/ -f1)
 
-echo "🔐 Attempting docker login..."
-echo "$NEXUS_PASS" | docker login \$REGISTRY -u "$NEXUS_USER" --password-stdin
+echo "📦 IMAGE: $IMAGE"
+echo "🔗 REGISTRY: $REGISTRY"
 
+# Docker login
+echo "$NEXUS_PASS" | docker login $REGISTRY -u "$NEXUS_USER" --password-stdin
 echo "✅ Docker login successful"
-echo "🧼 Removing any dangling containers or images..."
-docker system prune -f || true
 
-echo "🚀 Starting containers with docker-compose"
-cd $REMOTE_DIR
+# Start containers
+cd $HOME/kafka-cluster
 docker-compose -f docker-compose.yml up -d
-
-echo "✅ Kafka containers started successfully"
-EOF
-"""
+echo "✅ Kafka containers started"
+ENDSSH
+'''
       }
     }
   }
