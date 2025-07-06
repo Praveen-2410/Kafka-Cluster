@@ -102,7 +102,7 @@ pipeline {
 
         # Copy client-properties
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster-setup/config/client-properties/client-ssl.properties \
+          Kafka-cluster-setup/config/client-ssl.properties \
           Kafka-cluster-setup/config/client-properties/admin.properties \
           $REMOTE_HOST:$REMOTE_DIR/shared/client-properties/
 
