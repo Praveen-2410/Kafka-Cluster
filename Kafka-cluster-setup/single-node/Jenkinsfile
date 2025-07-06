@@ -187,7 +187,7 @@ stage('Start Kafka Containers') {
     sshagent(credentials: ['ec2-ssh-key']) {
       withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
 sh """#!/bin/bash
-ssh -o StrictHostKeyChecking=no $node <<EOF
+ssh -o StrictHostKeyChecking=no $REMOTE_HOST <<EOF
 export IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
 export REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
 echo '${env.NEXUS_PASS}' | docker login \$REGISTRY -u '${env.NEXUS_USER}' --password-stdin
