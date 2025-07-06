@@ -185,24 +185,25 @@ pipeline {
 stage('Start Kafka Containers') {
   steps {
     sshagent(credentials: ['ec2-ssh-key']) {
-      withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-        script {
-          def node = "ec2-user@172.31.28.136"
-          sh """#!/bin/bash
+      script {
+        def node = "ec2-user@172.31.28.136"
+        sh """#!/bin/bash
 ssh -o StrictHostKeyChecking=no $node <<'EOF'
 REMOTE_DIR=/home/ec2-user/kafka-cluster
-IMAGE=\$(cat \$REMOTE_DIR/image-tag.txt)
-REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
-echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
 cd \$REMOTE_DIR
+IMAGE=\$(cat image-tag.txt)
+# Inject image tag into docker-compose.yml
+sed -i "s|image: *\$|image: \$IMAGE|g" docker-compose.yml
+
+# Start containers
 docker-compose -f docker-compose.yml up -d
 EOF
 """
-        }
       }
     }
   }
 }
+
 
 
 
