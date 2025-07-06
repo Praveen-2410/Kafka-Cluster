@@ -108,7 +108,7 @@ pipeline {
 
         # Copy scripts
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster-setup/single-node/scripts/*
+          Kafka-cluster-setup/single-node/scripts/* \
           $REMOTE_HOST:$REMOTE_DIR/shared/scripts/
 
         # Copy server.properties.template
