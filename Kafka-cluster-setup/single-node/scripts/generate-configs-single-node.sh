@@ -5,6 +5,14 @@ set -e
 # Load .env into environment
 export $(grep -v '^#' .env | xargs)
 
+# Load IMAGE_FULL from image-tag.txt
+if [ -f image-tag.txt ]; then
+  export IMAGE_FULL=$(cat image-tag.txt)
+else
+  echo "❌ ERROR: image-tag.txt not found!"
+  exit 1
+fi
+
 # Paths
 TEMPLATE_PATH="shared/server.properties.template"
 COMPOSE_TEMPLATE_PATH="shared/docker-compose.single-node.yml.template"
