@@ -150,7 +150,7 @@ pipeline {
             '''
             def clusterIds = sh(script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} \"${clusterIdCmd}\"", returnStdout: true).trim()
             def uniqueIds = clusterIds.tokenize(',').unique()
-            def newClusterId = sh(script: "docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
+            def newClusterId = sh(script: "sudo docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
 
             if (uniqueIds.size() > 1) {
               echo "Multiple cluster IDs found. Reformatting all brokers."
@@ -162,7 +162,7 @@ pipeline {
               sh """
                 ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
                   mkdir -p ${REMOTE_DIR}/broker-${i}/data
-                  docker run --rm \
+                  sudo docker run --rm \
                     -v ${REMOTE_DIR}/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties \
                     -v ${REMOTE_DIR}/broker-${i}/data:/var/lib/kafka/data \
                     apache/kafka:4.0.0 \
