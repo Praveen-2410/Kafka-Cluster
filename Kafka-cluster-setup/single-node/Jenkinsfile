@@ -72,13 +72,13 @@ pipeline {
             ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
               BASE_DIR="$REMOTE_DIR"
               for i in 1 2 3; do
-                sudo mkdir -p "\$BASE_DIR/broker-\$i/config"
-                sudo mkdir -p "\$BASE_DIR/broker-\$i/data"
+                mkdir -p "\$BASE_DIR/broker-\$i/config"
+                mkdir -p "\$BASE_DIR/broker-\$i/data"
               done
-              sudo mkdir -p "\$BASE_DIR/shared/certs-single-node"
-              sudo mkdir -p "\$BASE_DIR/shared/jaas"
-              sudo mkdir -p "\$BASE_DIR/shared/client-properties"
-              sudo mkdir -p "\$BASE_DIR/shared/scripts"
+              mkdir -p "\$BASE_DIR/shared/certs-single-node"
+              mkdir -p "\$BASE_DIR/shared/jaas"
+              mkdir -p "\$BASE_DIR/shared/client-properties"
+              mkdir -p "\$BASE_DIR/shared/scripts"
               chmod -R 755 \$BASE_DIR
             '
 
