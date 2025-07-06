@@ -192,32 +192,32 @@ stage('Start Kafka Containers') {
           passwordVariable: 'NEXUS_PASS'
         )
       ]) {
-        sh """
-          export NEXUS_USER='$NEXUS_USER'
-          export NEXUS_PASS='$NEXUS_PASS'
+        sh '''#!/bin/bash
+ssh -o StrictHostKeyChecking=no $REMOTE_HOST bash <<EOF
+  set -e
 
-          ssh -o StrictHostKeyChecking=no $REMOTE_HOST <<'ENDSSH'
-            set -e
+  export NEXUS_USER="${NEXUS_USER}"
+  export NEXUS_PASS="${NEXUS_PASS}"
 
-            IMAGE=\$(cat \$HOME/kafka-cluster/image-tag.txt)
-            REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
+  IMAGE=$(cat $HOME/kafka-cluster/image-tag.txt)
+  REGISTRY=$(echo $IMAGE | cut -d/ -f1)
 
-            echo "📦 IMAGE: \$IMAGE"
-            echo "🔗 REGISTRY: \$REGISTRY"
+  echo "📦 IMAGE: $IMAGE"
+  echo "🔗 REGISTRY: $REGISTRY"
 
-            if [ -z "\$NEXUS_USER" ] || [ -z "\$NEXUS_PASS" ]; then
-              echo "❌ Missing NEXUS credentials!"
-              exit 1
-            fi
+  if [ -z "$NEXUS_USER" ] || [ -z "$NEXUS_PASS" ]; then
+    echo "❌ Missing NEXUS credentials!"
+    exit 1
+  fi
 
-            echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
-            echo "✅ Docker login successful"
+  echo "$NEXUS_PASS" | docker login $REGISTRY -u "$NEXUS_USER" --password-stdin
+  echo "✅ Docker login successful"
 
-            cd \$HOME/kafka-cluster
-            docker-compose -f docker-compose.yml up -d
-            echo "✅ Kafka containers started"
-          ENDSSH
-        """
+  cd $HOME/kafka-cluster
+  docker-compose -f docker-compose.yml up -d
+  echo "✅ Kafka containers started"
+EOF
+'''
       }
     }
   }
