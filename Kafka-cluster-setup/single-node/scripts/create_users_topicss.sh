@@ -9,7 +9,7 @@ set -e
 source .env
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
-BOOTSTRAP_SERVER="${BROKER1_IP}:$BROKER1_EXTERNAL_PORT"
+BOOTSTRAP_SERVER="${SINGLE_NODE_IP}:$BROKER1_EXTERNAL_PORT"
 CONFIG="/opt/kafka/config/client-properties/admin.properties"
 
 # ---------- Users & Passwords ----------
