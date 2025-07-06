@@ -119,6 +119,7 @@ pipeline {
         
         ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
           chmod 644 $REMOTE_DIR/shared/certs-single-node/*.p12
+          chmod +x $REMOTE_DIR/shared/scripts/*
         '
       """
     }
