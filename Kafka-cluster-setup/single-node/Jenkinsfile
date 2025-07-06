@@ -12,7 +12,7 @@ pipeline {
       steps {
         script {
           def timestamp = sh(script: "date +%Y%m%d%H%M", returnStdout: true).trim()
-          env.IMAGE_TAG = "npc-uae-kafka-single-node-${timestamp}:latest"
+          env.IMAGE_TAG = "npc-uae-kafka-${timestamp}:latest"
         }
       }
     }
@@ -30,10 +30,13 @@ pipeline {
             def envVars = readFile('.env').split('\n')
             def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
             def nexusHost = nexusHostLine?.split('=')[-1]?.trim()
+
             if (!nexusHost) {
               error "NEXUS_HOST not defined in .env file!"
             }
+
             env.IMAGE_FULL = "${nexusHost}/uae-kafka/${env.IMAGE_TAG}"
+            echo "Using image: ${env.IMAGE_FULL}"
             writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
           }
         }
@@ -62,150 +65,126 @@ pipeline {
       }
     }
 
-    stage('Distribute Files to Node') {
+    stage('Distribute Files to Remote Node') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          script {
-            def remoteMkdirScript = """
+          sh """
+            ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
+              BASE_DIR="$REMOTE_DIR"
               for i in 1 2 3; do
-                mkdir -p ${REMOTE_DIR}/broker-\\${i}/config
-                mkdir -p ${REMOTE_DIR}/broker-\\${i}/data
+                sudo mkdir -p "\$BASE_DIR/broker-\$i/config"
+                sudo mkdir -p "\$BASE_DIR/broker-\$i/data"
               done
-              mkdir -p ${REMOTE_DIR}/shared/{certs-single-node,jaas,client-properties,scripts}
-              chmod -R 755 ${REMOTE_DIR}
-            """
+              sudo mkdir -p "\$BASE_DIR/shared/certs-single-node"
+              sudo mkdir -p "\$BASE_DIR/shared/jaas"
+              sudo mkdir -p "\$BASE_DIR/shared/client-properties"
+              sudo mkdir -p "\$BASE_DIR/shared/scripts"
+              chmod -R 755 \$BASE_DIR
+            '
 
-            def scpFilesScript = """
-              scp -o StrictHostKeyChecking=no \
-                Kafka-cluster-setup/.env \
-                Kafka-cluster-setup/image-tag.txt \
-                ${REMOTE_HOST}:${REMOTE_DIR}/
+            scp -o StrictHostKeyChecking=no -r \
+              Kafka-cluster-setup/.env \
+              Kafka-cluster-setup/single-node/config/server.properties.template \
+              Kafka-cluster-setup/single-node/certs \
+              Kafka-cluster-setup/single-node/scripts \
+              Kafka-cluster-setup/single-node/docker-compose.single-node.yml.template \
+              Kafka-cluster-setup/image-tag.txt \
+              $REMOTE_HOST:$REMOTE_DIR/shared/
 
-              scp -o StrictHostKeyChecking=no \
-                Kafka-cluster-setup/single-node/docker-compose.single-node.yml.template \
-                ${REMOTE_HOST}:${REMOTE_DIR}/
-
-              scp -o StrictHostKeyChecking=no \
-                Kafka-cluster-setup/single-node/config/server.properties.template \
-                ${REMOTE_HOST}:${REMOTE_DIR}/shared/
-
-              scp -o StrictHostKeyChecking=no -r \
-                Kafka-cluster-setup/single-node/certs-single-node/* \
-                ${REMOTE_HOST}:${REMOTE_DIR}/shared/certs-single-node/
-
-              scp -o StrictHostKeyChecking=no \
-                Kafka-cluster-setup/config/kafka_jaas.conf \
-                Kafka-cluster-setup/config/kafka_admin_jaas.conf \
-                ${REMOTE_HOST}:${REMOTE_DIR}/shared/jaas/
-
-              scp -o StrictHostKeyChecking=no -r \
-                Kafka-cluster-setup/config/client-properties/* \
-                ${REMOTE_HOST}:${REMOTE_DIR}/shared/client-properties/
-
-              scp -o StrictHostKeyChecking=no \
-                Kafka-cluster-setup/scripts/verify-cluster-and-setup-admin.sh \
-                Kafka-cluster-setup/scripts/create_users_topic.sh \
-                Kafka-cluster-setup/single-node/scripts/generate-configs-single-node.sh \
-                ${REMOTE_HOST}:${REMOTE_DIR}/shared/scripts/
-            """
-
-            sh """
-              ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '${remoteMkdirScript}'
-              ${scpFilesScript}
-              ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
-                chmod +x ${REMOTE_DIR}/shared/scripts/*.sh
-                chmod 644 ${REMOTE_DIR}/shared/certs-single-node/*.p12
-              '
-            """
-          }
+            ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
+              chmod 644 $REMOTE_DIR/shared/certs-single-node/*.p12
+            '
+          """
         }
       }
     }
 
-    stage('Generate Configs & Compose') {
+    stage('Generate Broker Configs') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'cd ${REMOTE_DIR} && bash shared/scripts/generate-configs-single-node.sh'"
-          sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'cd ${REMOTE_DIR} && envsubst < docker-compose.single-node.yml.template > docker-compose.yml'"
+          sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'cd $REMOTE_DIR && bash shared/scripts/generate-configs-single-node.sh'"
         }
       }
     }
 
-    stage('Format Cluster Storage') {
+    stage('Cluster ID Setup + Format') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
           script {
-            def checkClusterIdsCmd = """
-              ids=""
-              for i in 1 2 3; do
-                f="${REMOTE_DIR}/broker-\${i}/data/meta.properties"
-                if [ -f "$f" ]; then
-                  id=\$(grep cluster.id= "$f" | cut -d= -f2)
-                  [ -n "\$id" ] && ids+="\$id,"
-                fi
-              done
-              echo "\${ids%,}"
-            """
+            def clusterIds = []
+            for (int i = 1; i <= 3; i++) {
+              def id = sh(
+                script: "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'grep cluster.id $REMOTE_DIR/broker-${i}/data/meta.properties | cut -d= -f2 || true'",
+                returnStdout: true
+              ).trim()
+              clusterIds.add(id ?: '')
+            }
 
-            def clusterIds = sh(script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '${checkClusterIdsCmd}'", returnStdout: true).trim()
-            def uniqueIds = clusterIds.tokenize(',').findAll { it }.unique()
+            def uniqueIds = clusterIds.findAll { it }.unique()
+            if (uniqueIds.size() == 1) {
+              echo "All brokers already formatted with cluster ID: ${uniqueIds[0]}"
+              return
+            }
 
             if (uniqueIds.size() > 1) {
-              echo "❗ Mismatched cluster IDs found. Backing up..."
+              echo "Mismatched cluster IDs found. Backing up and cleaning..."
               def timestamp = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
               for (int i = 1; i <= 3; i++) {
-                sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'mv ${REMOTE_DIR}/broker-${i}/data ${REMOTE_DIR}/broker-${i}/data-backup-${timestamp} && mkdir -p ${REMOTE_DIR}/broker-${i}/data'"
+                sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'mkdir -p $REMOTE_DIR/broker-${i}/data-backup-${timestamp} && cp -r $REMOTE_DIR/broker-${i}/data/* $REMOTE_DIR/broker-${i}/data-backup-${timestamp}/ && rm -rf $REMOTE_DIR/broker-${i}/data/*'"
               }
             }
 
-            def newClusterId = sh(script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid'", returnStdout: true).trim()
-            echo "✅ Generated Cluster ID: ${newClusterId}"
+            sh 'docker pull apache/kafka:4.0.0'
+            def clusterId = sh(script: "docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
+            echo "Generated Cluster ID: ${clusterId}"
 
             for (int i = 1; i <= 3; i++) {
-              def formatCmd = """
-                docker run --rm \
-                  -v ${REMOTE_DIR}/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties \
-                  -v ${REMOTE_DIR}/broker-${i}/data:/var/lib/kafka/data \
-                  apache/kafka:4.0.0 \
-                  /opt/kafka/bin/kafka-storage.sh format -t ${newClusterId} -c /opt/kafka/config/kraft/server.properties
+              sh """
+                ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
+                  docker run --rm \
+                    -v $REMOTE_DIR/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties \
+                    -v $REMOTE_DIR/broker-${i}/data:/var/lib/kafka/data \
+                    apache/kafka:4.0.0 \
+                    /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties
+                '
               """
-              sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '${formatCmd}'"
             }
           }
         }
       }
     }
 
-    stage('Start Kafka Brokers') {
+    stage('Start Kafka Containers') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-            sh """
-              ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
-                IMAGE=\$(cat ${REMOTE_DIR}/image-tag.txt)
-                REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
-                echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
-                cd ${REMOTE_DIR}
-                docker-compose -f docker-compose.yml up -d
-              '
-            """
+            sh """#!/bin/bash
+ssh -o StrictHostKeyChecking=no $REMOTE_HOST <<'EOF'
+IMAGE=\$(cat $REMOTE_DIR/shared/image-tag.txt)
+REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
+echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
+cd $REMOTE_DIR
+cp shared/docker-compose.single-node.yml.template docker-compose.yml
+docker-compose up -d
+EOF
+"""
           }
         }
       }
     }
 
-    stage('Verify Cluster & Setup Admin') {
+    stage('Verify Cluster & Create Admin User') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'cd ${REMOTE_DIR} && bash shared/scripts/verify-cluster-and-setup-admin.sh'"
+          sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'cd $REMOTE_DIR && bash shared/scripts/verify-cluster-and-setup-admin.sh'"
         }
       }
     }
 
-    stage('Create Topics & ACLs') {
+    stage('Create Topics, Users & ACLs') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'cd ${REMOTE_DIR} && bash shared/scripts/create_users_topic.sh'"
+          sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'cd $REMOTE_DIR && bash shared/scripts/create_users_topic.sh'"
         }
       }
     }
