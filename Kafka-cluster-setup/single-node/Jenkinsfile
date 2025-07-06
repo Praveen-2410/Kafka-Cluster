@@ -199,7 +199,7 @@ ssh -o StrictHostKeyChecking=no $REMOTE_HOST bash <<EOF
   export NEXUS_USER="${NEXUS_USER}"
   export NEXUS_PASS="${NEXUS_PASS}"
 
-  IMAGE=$(cat $REMOTE_DIR/kafka-cluster/image-tag.txt)
+  IMAGE=$(cat $REMOTE_DIR/image-tag.txt)
   REGISTRY=$(echo $IMAGE | cut -d/ -f1)
 
   echo "📦 IMAGE: $IMAGE"
