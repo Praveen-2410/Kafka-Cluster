@@ -7,7 +7,7 @@ export $(grep -v '^#' .env | xargs)
 
 # Paths
 TEMPLATE_PATH="shared/server.properties.template"
-COMPOSE_TEMPLATE_PATH="docker-compose.single-node.yml.template"
+COMPOSE_TEMPLATE_PATH="shared/docker-compose.single-node.yml.template"
 COMPOSE_OUTPUT_PATH="docker-compose.yml"
 BASE_DIR=$(pwd)
 
