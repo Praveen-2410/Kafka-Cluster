@@ -89,7 +89,7 @@ pipeline {
                 ${REMOTE_HOST}:${REMOTE_DIR}/shared/
 
               scp -o StrictHostKeyChecking=no -r \
-                Kafka-cluster-setup/single-node/certs/* \
+                Kafka-cluster-setup/single-node/certs-single-node/* \
                 ${REMOTE_HOST}:${REMOTE_DIR}/shared/certs-single-node/
 
               scp -o StrictHostKeyChecking=no \
