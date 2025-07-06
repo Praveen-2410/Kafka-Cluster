@@ -186,20 +186,19 @@ stage('Start Kafka Containers') {
   steps {
     sshagent(credentials: ['ec2-ssh-key']) {
       withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-sh """#!/bin/bash
+                sh """#!/bin/bash
 ssh -o StrictHostKeyChecking=no $REMOTE_HOST <<'EOF'
-export IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
-export REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
+IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
+REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
 echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
 cd $REMOTE_DIR
 docker-compose -f docker-compose.yml up -d
 EOF
 """
-      }
+              }
     }
   }
 }
-
 
 
     stage('Verify Cluster & Create Admin User') {
