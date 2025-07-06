@@ -154,7 +154,7 @@ pipeline {
 
             if (uniqueIds.size() > 1) {
               echo "Multiple cluster IDs found. Backing up data and formatting all brokers with ID: ${newClusterId}"
-              for (i in 1..3) {
+              for (def i in 1..3) {
                 sh """
                   ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
                     mv $REMOTE_DIR/broker-${i}/data $REMOTE_DIR/broker-${i}/data_backup_\$(date +%s) || true
@@ -169,7 +169,7 @@ pipeline {
               }
             } else {
               echo "Single or no cluster ID. Formatting brokers with ID: ${newClusterId}"
-              for (i in 1..3) {
+              for (def i in 1..3) {
                 sh """
                   ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
                     docker run --rm \
