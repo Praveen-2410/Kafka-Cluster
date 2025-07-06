@@ -169,7 +169,7 @@ pipeline {
             for (int i = 1; i <= 3; i++) {
               sh """
                 ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
-                  docker run --rm \
+                  sudo docker run --rm \
                     -v $REMOTE_DIR/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties \
                     -v $REMOTE_DIR/broker-${i}/data:/var/lib/kafka/data \
                     apache/kafka:4.0.0 \
