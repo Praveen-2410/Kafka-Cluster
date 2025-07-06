@@ -186,21 +186,25 @@ pipeline {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-            sh """
-              ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
-                IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
-                REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
-                echo "$NEXUS_PASS" | docker login \$REGISTRY -u "$NEXUS_USER" --password-stdin
-                cd $REMOTE_DIR
-                cp shared/docker-compose.single-node.yml.template docker-compose.yml
-                docker-compose up -d
-              '
-            """
+            sh """#!/bin/bash
+ssh -o StrictHostKeyChecking=no \$REMOTE_HOST <<EOF
+export NEXUS_USER="$NEXUS_USER"
+export NEXUS_PASS="$NEXUS_PASS"
+
+IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
+REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
+
+echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
+
+cd $REMOTE_DIR
+cp shared/docker-compose.single-node.yml.template docker-compose.yml
+docker-compose up -d
+EOF
+"""
           }
         }
       }
     }
-
 
 
     stage('Verify Cluster & Create Admin User') {
