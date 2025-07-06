@@ -187,19 +187,14 @@ stage('Start Kafka Containers') {
     sshagent(credentials: ['ec2-ssh-key']) {
       withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
         script {
+          def node = "ec2-user@172.31.28.136"
           sh """#!/bin/bash
-ssh -o StrictHostKeyChecking=no \$REMOTE_HOST <<EOF
-set -e
-
-REMOTE_DIR="/home/ec2-user/kafka-cluster"
-
+ssh -o StrictHostKeyChecking=no $node <<'EOF'
+REMOTE_DIR=/home/ec2-user/kafka-cluster
 IMAGE=\$(cat \$REMOTE_DIR/image-tag.txt)
 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
-
-echo "${NEXUS_PASS}" | docker login \$REGISTRY -u "${NEXUS_USER}" --password-stdin
-
+echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
 cd \$REMOTE_DIR
-
 docker-compose -f docker-compose.yml up -d
 EOF
 """
@@ -208,6 +203,7 @@ EOF
     }
   }
 }
+
 
 
 
