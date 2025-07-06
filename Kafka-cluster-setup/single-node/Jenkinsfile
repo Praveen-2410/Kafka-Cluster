@@ -7,6 +7,7 @@ pipeline {
   }
 
   stages {
+
     stage('Generate Dynamic Tag') {
       steps {
         script {
@@ -65,16 +66,16 @@ pipeline {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
           script {
-            sh """
-              ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
-                for i in 1 2 3; do
-                  mkdir -p ${REMOTE_DIR}/broker-\${i}/config
-                  mkdir -p ${REMOTE_DIR}/broker-\${i}/data
-                done
-                mkdir -p ${REMOTE_DIR}/shared/{certs-single-node,jaas,client-properties,scripts}
-                chmod -R 755 ${REMOTE_DIR}
-              '
+            def remoteMkdirScript = """
+              for i in 1 2 3; do
+                mkdir -p ${REMOTE_DIR}/broker-\\${i}/config
+                mkdir -p ${REMOTE_DIR}/broker-\\${i}/data
+              done
+              mkdir -p ${REMOTE_DIR}/shared/{certs-single-node,jaas,client-properties,scripts}
+              chmod -R 755 ${REMOTE_DIR}
+            """
 
+            def scpFilesScript = """
               scp -o StrictHostKeyChecking=no \
                 Kafka-cluster-setup/.env \
                 Kafka-cluster-setup/image-tag.txt \
@@ -106,7 +107,11 @@ pipeline {
                 Kafka-cluster-setup/scripts/create_users_topic.sh \
                 Kafka-cluster-setup/single-node/scripts/generate-configs-single-node.sh \
                 ${REMOTE_HOST}:${REMOTE_DIR}/shared/scripts/
+            """
 
+            sh """
+              ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '${remoteMkdirScript}'
+              ${scpFilesScript}
               ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
                 chmod +x ${REMOTE_DIR}/shared/scripts/*.sh
                 chmod 644 ${REMOTE_DIR}/shared/certs-single-node/*.p12
@@ -130,22 +135,23 @@ pipeline {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
           script {
-            def checkCmd = '''
+            def checkClusterIdsCmd = """
               ids=""
               for i in 1 2 3; do
-                f="${REMOTE_DIR}/broker-${i}/data/meta.properties"
+                f="${REMOTE_DIR}/broker-\${i}/data/meta.properties"
                 if [ -f "$f" ]; then
-                  id=$(grep cluster.id= "$f" | cut -d= -f2)
-                  [ -n "$id" ] && ids+="$id,"
+                  id=\$(grep cluster.id= "$f" | cut -d= -f2)
+                  [ -n "\$id" ] && ids+="\$id,"
                 fi
               done
-              echo "${ids%,}"
-            '''
-            def clusterIds = sh(script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '${checkCmd}'", returnStdout: true).trim()
+              echo "\${ids%,}"
+            """
+
+            def clusterIds = sh(script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '${checkClusterIdsCmd}'", returnStdout: true).trim()
             def uniqueIds = clusterIds.tokenize(',').findAll { it }.unique()
 
             if (uniqueIds.size() > 1) {
-              echo "Mismatched cluster IDs found. Backing up..."
+              echo "❗ Mismatched cluster IDs found. Backing up..."
               def timestamp = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
               for (int i = 1; i <= 3; i++) {
                 sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'mv ${REMOTE_DIR}/broker-${i}/data ${REMOTE_DIR}/broker-${i}/data-backup-${timestamp} && mkdir -p ${REMOTE_DIR}/broker-${i}/data'"
@@ -153,18 +159,17 @@ pipeline {
             }
 
             def newClusterId = sh(script: "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} 'docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid'", returnStdout: true).trim()
-            echo "Generated Cluster ID: ${newClusterId}"
+            echo "✅ Generated Cluster ID: ${newClusterId}"
 
             for (int i = 1; i <= 3; i++) {
-              sh """
-                ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
-                  docker run --rm \
-                    -v ${REMOTE_DIR}/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties \
-                    -v ${REMOTE_DIR}/broker-${i}/data:/var/lib/kafka/data \
-                    apache/kafka:4.0.0 \
-                    /opt/kafka/bin/kafka-storage.sh format -t ${newClusterId} -c /opt/kafka/config/kraft/server.properties
-                '
+              def formatCmd = """
+                docker run --rm \
+                  -v ${REMOTE_DIR}/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties \
+                  -v ${REMOTE_DIR}/broker-${i}/data:/var/lib/kafka/data \
+                  apache/kafka:4.0.0 \
+                  /opt/kafka/bin/kafka-storage.sh format -t ${newClusterId} -c /opt/kafka/config/kraft/server.properties
               """
+              sh "ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '${formatCmd}'"
             }
           }
         }
@@ -179,7 +184,7 @@ pipeline {
               ssh -o StrictHostKeyChecking=no ${REMOTE_HOST} '
                 IMAGE=\$(cat ${REMOTE_DIR}/image-tag.txt)
                 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
-                echo \"\$NEXUS_PASS\" | docker login \$REGISTRY -u \"\$NEXUS_USER\" --password-stdin
+                echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
                 cd ${REMOTE_DIR}
                 docker-compose -f docker-compose.yml up -d
               '
