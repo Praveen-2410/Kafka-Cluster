@@ -192,19 +192,31 @@ stage('Start Kafka Containers') {
           passwordVariable: 'NEXUS_PASS'
         )
       ]) {
-        sh '''#!/bin/bash
-ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'bash -s' <<EOF
-export NEXUS_USER="${NEXUS_USER}"
-export NEXUS_PASS="${NEXUS_PASS}"
+        sh """#!/bin/bash
+ssh -o StrictHostKeyChecking=no $REMOTE_HOST <<EOF
+set -e
 
-IMAGE=\$(cat /home/ec2-user/kafka-cluster/image-tag.txt)
+echo "🔍 Reading image tag..."
+IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
 
-echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
-cd /home/ec2-user/kafka-cluster
+echo "📦 IMAGE: \$IMAGE"
+echo "🔗 REGISTRY: \$REGISTRY"
+
+echo "🔐 Attempting docker login..."
+echo "$NEXUS_PASS" | docker login \$REGISTRY -u "$NEXUS_USER" --password-stdin
+
+echo "✅ Docker login successful"
+echo "🧼 Removing any dangling containers or images..."
+docker system prune -f || true
+
+echo "🚀 Starting containers with docker-compose"
+cd $REMOTE_DIR
 docker-compose -f docker-compose.yml up -d
+
+echo "✅ Kafka containers started successfully"
 EOF
-'''
+"""
       }
     }
   }
