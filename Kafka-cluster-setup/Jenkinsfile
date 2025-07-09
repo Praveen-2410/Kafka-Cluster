@@ -74,57 +74,59 @@ stage('Distribute Files to All Nodes') {
         def nodes = [env.NODE1, env.NODE2, env.NODE3]
         for (node in nodes) {
           sh """
-            ssh -o StrictHostKeyChecking=no $node '
-              BASE_DIR="$REMOTE_DIR"
+            ssh -o StrictHostKeyChecking=no ${node} '
+              BASE_DIR="${REMOTE_DIR}"
 
-              if [ -d "$BASE_DIR" ]; then
-              sudo chown -R ec2-user:ec2-user "$BASE_DIR"
+              if [ -d "\$BASE_DIR" ]; then
+                sudo chown -R ec2-user:ec2-user "\$BASE_DIR"
               fi
-              chmod -R 755 \$BASE_DIR
+
               mkdir -p "\$BASE_DIR/data"
               mkdir -p "\$BASE_DIR/config/certs"
               mkdir -p "\$BASE_DIR/config/client-properties"
               mkdir -p "\$BASE_DIR/scripts"
+              chmod -R 755 "\$BASE_DIR"
             '
 
-            # Copy individual files 
+            # Copy core files
             scp -o StrictHostKeyChecking=no \
               Kafka-cluster-setup/.env \
               Kafka-cluster-setup/image-tag.txt \
               Kafka-cluster-setup/docker-compose.yml.template \
-              $node:$REMOTE_DIR/
+              ${node}:${REMOTE_DIR}/
 
-            # Copy server.properties.template
+            # Copy server properties
             scp -o StrictHostKeyChecking=no \
               Kafka-cluster-setup/config/server.properties.template \
-              $node:$REMOTE_DIR/config/
+              ${node}:${REMOTE_DIR}/config/
 
-            # Copy JAAS configs
+            # Copy JAAS config files
             scp -o StrictHostKeyChecking=no \
               Kafka-cluster-setup/config/kafka_jaas.conf \
               Kafka-cluster-setup/config/kafka_admin_jaas.conf \
-              $node:$REMOTE_DIR/config/
+              ${node}:${REMOTE_DIR}/config/
 
-            # Copy client properties
+            # Copy client SSL and admin props
             scp -o StrictHostKeyChecking=no \
               Kafka-cluster-setup/config/client-ssl.properties \
               Kafka-cluster-setup/config/client-properties/admin.properties \
-              $node:$REMOTE_DIR/config/client-properties/
+              ${node}:${REMOTE_DIR}/config/client-properties/
 
-            # Copy certs
+            # Copy certificate files
             scp -o StrictHostKeyChecking=no \
               Kafka-cluster-setup/config/certs/broker.p12 \
               Kafka-cluster-setup/config/certs/ca-truststore.p12 \
-              $node:$REMOTE_DIR/config/certs/
+              ${node}:${REMOTE_DIR}/config/certs/
 
             # Copy scripts
             scp -o StrictHostKeyChecking=no \
               Kafka-cluster-setup/scripts/* \
-              $node:$REMOTE_DIR/scripts/
+              ${node}:${REMOTE_DIR}/scripts/
 
-            ssh -o StrictHostKeyChecking=no $node '
-              chmod 644 $REMOTE_DIR/config/certs/*.p12
-              chmod +x $REMOTE_DIR/scripts/*.sh
+            # Set permissions
+            ssh -o StrictHostKeyChecking=no ${node} '
+              chmod 644 "\$BASE_DIR/config/certs/"*.p12
+              chmod +x "\$BASE_DIR/scripts/"*.sh
             '
           """
         }
@@ -132,7 +134,6 @@ stage('Distribute Files to All Nodes') {
     }
   }
 }
-
 
     stage('Generate Configs (envsubst)') {
       steps {
