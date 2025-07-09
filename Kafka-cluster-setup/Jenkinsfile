@@ -114,8 +114,7 @@ stage('Distribute Files to All Nodes') {
 
             # Copy certificate files
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/config/certs/broker.p12 \
-              Kafka-cluster-setup/config/certs/ca-truststore.p12 \
+              Kafka-cluster-setup/config/certs/*.p12 \
               ${node}:${REMOTE_DIR}/config/certs/
 
             # Copy scripts
@@ -125,8 +124,8 @@ stage('Distribute Files to All Nodes') {
 
             # Set permissions
             ssh -o StrictHostKeyChecking=no ${node} '
-              chmod 644 "\$BASE_DIR/config/certs/"*.p12
-              chmod +x "\$BASE_DIR/scripts/"*.sh
+              chmod 644 $REMOTE_DIR/config/certs/*.p12
+              chmod +x $REMOTE_DIR/scripts/*.sh
             '
           """
         }
