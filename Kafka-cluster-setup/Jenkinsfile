@@ -67,48 +67,68 @@ pipeline {
       }
     }
 
-    stage('Distribute Files to All Nodes') {
-      steps {
-        sshagent(credentials: ['ec2-ssh-key']) {
-          script {
-            def nodes = [env.NODE1, env.NODE2, env.NODE3]
-            for (node in nodes) {
-              sh """
-                ssh -o StrictHostKeyChecking=no $node '
-                  BASE_DIR="$REMOTE_DIR"
-                  CONFIG_DIR="\$BASE_DIR/config"
-                  DATA_DIR="\$BASE_DIR/data"
-                  CERT_DIR="\$CONFIG_DIR/certs"
-                  SCRIPT_DIR="\$BASE_DIR/scripts"
+stage('Distribute Files to All Nodes') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        def nodes = [env.NODE1, env.NODE2, env.NODE3]
+        for (node in nodes) {
+          sh """
+            ssh -o StrictHostKeyChecking=no $node '
+              BASE_DIR="$REMOTE_DIR"
+              mkdir -p "\$BASE_DIR/data"
+              mkdir -p "\$BASE_DIR/config/certs"
+              mkdir -p "\$BASE_DIR/config/client-properties"
+              mkdir -p "\$BASE_DIR/scripts"
+              chmod -R 755 \$BASE_DIR
+            '
 
-                  for dir in "\$BASE_DIR" "\$CONFIG_DIR" "\$DATA_DIR" "\$CERT_DIR" "\$SCRIPT_DIR"; do
-                    if [ ! -d "\$dir" ]; then
-                      sudo mkdir -p "\$dir"
-                      echo "Created: \$dir"
-                    fi
-                  done
+            # Copy individual files 
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/.env \
+              Kafka-cluster-setup/image-tag.txt \
+              Kafka-cluster-setup/docker-compose.yml.template \
+              $node:$REMOTE_DIR/
 
-                  sudo chown -R ec2-user:ec2-user "\$BASE_DIR"
-                  sudo chmod -R 755 "\$BASE_DIR"
-                '
+            # Copy server.properties.template
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/config/server.properties.template \
+              $node:$REMOTE_DIR/config/
 
-                scp -o StrictHostKeyChecking=no -r \
-                  Kafka-cluster-setup/.env \
-                  Kafka-cluster-setup/config \
-                  Kafka-cluster-setup/docker-compose.yml.template \
-                  Kafka-cluster-setup/image-tag.txt \
-                  Kafka-cluster-setup/scripts \
-                  $node:$REMOTE_DIR/
+            # Copy JAAS configs
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/config/kafka_jaas.conf \
+              Kafka-cluster-setup/config/kafka_admin_jaas.conf \
+              $node:$REMOTE_DIR/config/
 
-                ssh -o StrictHostKeyChecking=no $node '
-                  chmod 644 $REMOTE_DIR/config/certs/*.p12
-                '
-              """
-            }
-          }
+            # Copy client properties
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/config/client-ssl.properties \
+              Kafka-cluster-setup/config/client-properties/admin.properties \
+              $node:$REMOTE_DIR/config/client-properties/
+
+            # Copy certs
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/config/certs/broker.p12 \
+              Kafka-cluster-setup/config/certs/ca-truststore.p12 \
+              $node:$REMOTE_DIR/config/certs/
+
+            # Copy scripts
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster-setup/scripts/* \
+              $node:$REMOTE_DIR/scripts/
+
+            ssh -o StrictHostKeyChecking=no $node '
+              chmod 644 $REMOTE_DIR/config/certs/*.p12
+              chmod +x $REMOTE_DIR/scripts/*.sh
+            '
+          """
         }
       }
     }
+  }
+}
+
 
     stage('Generate Configs (envsubst)') {
       steps {
