@@ -76,11 +76,15 @@ stage('Distribute Files to All Nodes') {
           sh """
             ssh -o StrictHostKeyChecking=no $node '
               BASE_DIR="$REMOTE_DIR"
+
+              if [ -d "$BASE_DIR" ]; then
+              sudo chown -R ec2-user:ec2-user "$BASE_DIR"
+              fi
+              chmod -R 755 \$BASE_DIR
               mkdir -p "\$BASE_DIR/data"
               mkdir -p "\$BASE_DIR/config/certs"
               mkdir -p "\$BASE_DIR/config/client-properties"
               mkdir -p "\$BASE_DIR/scripts"
-              chmod -R 755 \$BASE_DIR
             '
 
             # Copy individual files 
