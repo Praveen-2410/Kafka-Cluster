@@ -27,7 +27,7 @@ pipeline {
 
     stage('Inject Image Tag into File') {
       steps {
-        dir('Kafka-cluster-setup') {
+        dir('Kafka-Cluster/Multi-Node') {
           script {
             def envVars = readFile('.env').split('\n')
             def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
@@ -47,7 +47,7 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        dir('Kafka-cluster-setup') {
+        dir('Kafka-Cluster/Multi-Node') {
           sh 'docker build -t $(cat image-tag.txt) .'
         }
       }
@@ -55,7 +55,7 @@ pipeline {
 
     stage('Push Image to Nexus') {
       steps {
-        dir('Kafka-cluster-setup') {
+        dir('Kafka-Cluster/Multi-Node') {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
             sh '''
               IMAGE=$(cat image-tag.txt)
@@ -90,36 +90,36 @@ stage('Distribute Files to All Nodes') {
 
             # Copy core files
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/.env \
-              Kafka-cluster-setup/image-tag.txt \
-              Kafka-cluster-setup/docker-compose.yml.template \
+              Kafka-Cluster/.env \
+              Kafka-Cluster/Multi-Node/image-tag.txt \
+              Kafka-Cluster/Multi-Node/docker-compose.yml.template \
               ${node}:${REMOTE_DIR}/
 
             # Copy server properties
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/config/server.properties.template \
+              Kafka-Cluster/Multi-Node/config/server.properties.template \
               ${node}:${REMOTE_DIR}/config/
 
             # Copy JAAS config files
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/config/kafka_jaas.conf \
-              Kafka-cluster-setup/config/kafka_admin_jaas.conf \
+              Kafka-Cluster/Multi-Node/config/kafka_jaas.conf \
+              Kafka-Cluster/Multi-Node/config/kafka_admin_jaas.conf \
               ${node}:${REMOTE_DIR}/config/
 
             # Copy client SSL and admin props
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/config/client-ssl.properties \
-              Kafka-cluster-setup/config/client-properties/admin.properties \
+              Kafka-Cluster/Multi-Node/config/client-properties/client-ssl.properties \
+              Kafka-Cluster/Multi-Node/config/client-properties/admin.properties \
               ${node}:${REMOTE_DIR}/config/client-properties/
 
             # Copy certificate files
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/config/certs/*.p12 \
+              Kafka-Cluster/Multi-Node/config/multi-node-certs/*.p12 \
               ${node}:${REMOTE_DIR}/config/certs/
 
             # Copy scripts
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster-setup/scripts/* \
+              Kafka-Cluster/Multi-Node/scripts/* \
               ${node}:${REMOTE_DIR}/scripts/
 
             # Set permissions
