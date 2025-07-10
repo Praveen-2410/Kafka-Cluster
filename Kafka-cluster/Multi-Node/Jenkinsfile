@@ -47,8 +47,8 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        dir('Kafka-cluster/Multi-Node') {
-          sh 'docker build -t $(cat image-tag.txt) .'
+        dir('Kafka-cluster') {
+          sh 'docker build -t $(cat Multi-Node/image-tag.txt) .'
         }
       }
     }
