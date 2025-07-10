@@ -1,14 +1,17 @@
 #!/bin/bash
 set -e
 
-# Load .env variables
-if [ ! -f .env ]; then
-  echo "ERROR: .env file not found!"
+# Navigate to Multi-Node directory to ensure relative paths work
+cd "$(dirname "$0")/.."
+
+# Load common .env file from root
+if [ ! -f ../../.env ]; then
+  echo "ERROR: .env file not found at root!"
   exit 1
 fi
-source .env
+source ../../.env
 
-# Load image tag
+# Load image tag (assumed to be in Multi-Node folder after Jenkins injects it)
 if [ -f image-tag.txt ]; then
   export IMAGE_FULL=$(cat image-tag.txt)
 else
@@ -16,7 +19,7 @@ else
   exit 1
 fi
 
-# Determine broker number (1, 2, or 3)
+# Determine broker number
 BROKER_NUM=${1:-1}
 
 # Resolve broker-specific values
@@ -24,7 +27,7 @@ NODE_ID=$(eval echo \$BROKER_ID_${BROKER_NUM})
 BROKER_IP=$(eval echo \$BROKER${BROKER_NUM}_IP)
 CONTAINER_NAME=$(eval echo \$CONTAINER_NAME_${BROKER_NUM})
 
-# Ensure required port variables exist
+# Check required port variables
 : "${INTERNAL_PORT:?INTERNAL_PORT not set in .env}"
 : "${EXTERNAL_PORT:?EXTERNAL_PORT not set in .env}"
 : "${CONTROLLER_PORT:?CONTROLLER_PORT not set in .env}"
