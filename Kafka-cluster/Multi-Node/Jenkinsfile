@@ -29,7 +29,7 @@ pipeline {
       steps {
         dir('Kafka-Cluster/Multi-Node') {
           script {
-            def envVars = readFile('.env').split('\n')
+            def envVars = readFile('../.env').split('\n')
             def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
             def nexusHost = nexusHostLine?.split('=')[-1]?.trim()
 
