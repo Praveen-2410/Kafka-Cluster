@@ -1,0 +1,26 @@
+version: "3"
+services:
+  kafka:
+    image: ${IMAGE_FULL}
+    container_name: $CONTAINER_NAME
+    restart: always
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+      - "9094:9094"
+    mem_limit: 2g
+    ulimits:
+      nofile:
+        soft: 100000
+        hard: 100000
+    volumes:
+      - ./data:/var/lib/kafka/data
+      - ./config/certs:/opt/kafka/secrets
+      - ./config/server.properties:/opt/kafka/config/kraft/server.properties
+      - ./config/client-properties:/opt/kafka/config/client-properties
+      - ./config/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf
+    environment:
+      - KAFKA_OPTS=-Djava.security.auth.login.config=/opt/kafka/config/kafka_jaas.conf
+      - KAFKA_HEAP_OPTS=-Xms1g -Xmx1g
+      - KAFKA_JVM_PERFORMANCE_OPTS=-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication
+    command: ["/opt/kafka/bin/kafka-server-start.sh", "/opt/kafka/config/kraft/server.properties"]
