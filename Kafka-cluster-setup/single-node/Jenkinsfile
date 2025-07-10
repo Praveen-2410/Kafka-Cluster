@@ -25,7 +25,7 @@ pipeline {
 
     stage('Inject Image Tag into File') {
       steps {
-        dir('Kafka-cluster-setup') {
+        dir('Kafka-Cluster/Single-Node') {
           script {
             def envVars = readFile('.env').split('\n')
             def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
@@ -45,7 +45,7 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        dir('Kafka-cluster-setup') {
+        dir('Kafka-Cluster/Single-Node') {
           sh 'docker build -t $(cat image-tag.txt) .'
         }
       }
@@ -53,7 +53,7 @@ pipeline {
 
     stage('Push Image to Nexus') {
       steps {
-        dir('Kafka-cluster-setup') {
+        dir('Kafka-Cluster/Single-Node') {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
             sh '''
               IMAGE=$(cat image-tag.txt)
@@ -75,7 +75,7 @@ pipeline {
             mkdir -p "\$BASE_DIR/broker-\$i/config"
             mkdir -p "\$BASE_DIR/broker-\$i/data"
           done
-          mkdir -p "\$BASE_DIR/shared/certs-single-node"
+          mkdir -p "\$BASE_DIR/shared/certs"
           mkdir -p "\$BASE_DIR/shared/jaas"
           mkdir -p "\$BASE_DIR/shared/client-properties"
           mkdir -p "\$BASE_DIR/shared/scripts"
@@ -84,41 +84,41 @@ pipeline {
 
         # Copy root-level files
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster-setup/.env \
-          Kafka-cluster-setup/image-tag.txt \
+          Kafka-cluster/.env \
+          Kafka-Cluster/Single-Node/image-tag.txt \
           $REMOTE_HOST:$REMOTE_DIR/
 
         # Copy certs
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster-setup/single-node/certs-single-node/broker.p12 \
-          Kafka-cluster-setup/single-node/certs-single-node/ca-truststore.p12 \
-          $REMOTE_HOST:$REMOTE_DIR/shared/certs-single-node/
+          Kafka-Cluster/Single-Node/single-node-certs/broker.p12 \
+          Kafka-Cluster/Single-Node/single-node-certs/ca-truststore.p12 \
+          $REMOTE_HOST:$REMOTE_DIR/shared/certs/
 
         # Copy JAAS configs
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster-setup/config/kafka_jaas.conf \
-          Kafka-cluster-setup/config/kafka_admin_jaas.conf \
+          Kafka-Cluster/Single-Node/config/kafka_jaas.conf \
+          Kafka-Cluster/Single-Node/kafka_admin_jaas.conf \
           $REMOTE_HOST:$REMOTE_DIR/shared/jaas/
 
         # Copy client-properties
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster-setup/config/client-ssl.properties \
-          Kafka-cluster-setup/config/client-properties/admin.properties \
+          Kafka-Cluster/Single-Node/config/client-ssl.properties \
+          Kafka-Cluster/Single-Node/config/client-properties/admin.properties \
           $REMOTE_HOST:$REMOTE_DIR/shared/client-properties/
 
         # Copy scripts
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster-setup/single-node/scripts/* \
+          Kafka-Cluster/Single-Node/scripts/* \
           $REMOTE_HOST:$REMOTE_DIR/shared/scripts/
 
         # Copy server.properties.template
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster-setup/single-node/config/server.properties.template \
-          Kafka-cluster-setup/single-node/docker-compose.single-node.yml.template \
+          Kafka-Cluster/Single-Node/config/server.properties.template \
+          Kafka-Cluster/Single-Node/docker-compose.single-node.yml.template \
           $REMOTE_HOST:$REMOTE_DIR/shared/
         
         ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
-          chmod 644 $REMOTE_DIR/shared/certs-single-node/*.p12
+          chmod 644 $REMOTE_DIR/shared/certs/*.p12
           chmod +x $REMOTE_DIR/shared/scripts/*
         '
       """
@@ -198,9 +198,9 @@ ssh -o StrictHostKeyChecking=no $REMOTE_HOST \\
   IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
   REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
 
-  echo "📦 IMAGE: \$IMAGE"
-  echo "🔗 REGISTRY: \$REGISTRY"
-  echo "🔐 Logging in..."
+  echo "IMAGE: \$IMAGE"
+  echo "REGISTRY: \$REGISTRY"
+  echo "Logging in..."
   echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
 
   cd $REMOTE_DIR
@@ -232,13 +232,7 @@ ENDSSH
 stage('Deployment Summary') {
   steps {
     echo """
-    ✅ Kafka Single-Node Cluster Deployed Successfully
-    ────────────────────────────────────────────────
-    ➤ Server: $REMOTE_HOST
-    ➤ Brokers: broker-1, broker-2, broker-3
-    ➤ Image: ${env.IMAGE_FULL}
-    ➤ Directory: $REMOTE_DIR
-    ➤ Docker Compose: $REMOTE_DIR/docker-compose.yml
+    Single-Node Kafka Cluster Deployed Successfully
     """
   }
 }
