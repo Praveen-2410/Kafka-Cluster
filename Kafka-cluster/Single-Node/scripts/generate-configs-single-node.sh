@@ -12,7 +12,7 @@ TEMPLATE_PATH="$CONFIG_DIR/server.properties.template"
 COMPOSE_TEMPLATE_PATH="$BASE_DIR/docker-compose.single-node.yml.template"
 COMPOSE_OUTPUT_PATH="$BASE_DIR/docker-compose.yml"
 IMAGE_TAG_PATH="$BASE_DIR/image-tag.txt"
-ENV_PATH="$BASE_DIR/../.env"  # root level .env
+ENV_PATH="$BASE_DIR/.env"  # root level .env
 
 # Load .env
 if [ ! -f "$ENV_PATH" ]; then
