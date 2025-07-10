@@ -201,9 +201,14 @@ stage('Distribute Files to All Nodes') {
               def nodes = [env.NODE1, env.NODE2, env.NODE3]
               for (node in nodes) {
                 sh """#!/bin/bash
-ssh -o StrictHostKeyChecking=no $node <<'EOF'
+ssh -o StrictHostKeyChecking=no $node \\
+NEXUS_USER='$NEXUS_USER' NEXUS_PASS='$NEXUS_PASS' bash -s <<'EOF'
+set -e
 IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
+echo "📦 IMAGE: \$IMAGE"
+echo "🔗 REGISTRY: \$REGISTRY"
+echo "🔐 Logging in..."
 echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
 cd $REMOTE_DIR
 docker-compose -f docker-compose.yml up -d
