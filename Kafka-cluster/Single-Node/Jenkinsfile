@@ -27,7 +27,7 @@ pipeline {
       steps {
         dir('Kafka-cluster/Single-Node') {
           script {
-            def envVars = readFile('../../.env').split('\n')
+            def envVars = readFile("${env.WORKSPACE}/Kafka-cluster/.env").split('\n')
             def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
             def nexusHost = nexusHostLine?.split('=')[-1]?.trim()
 
@@ -46,7 +46,7 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         dir('Kafka-cluster/Single-Node') {
-          sh 'docker build -t $(cat image-tag.txt) .'
+          sh 'docker build -t $(cat Single-Node/image-tag.txt) .'
         }
       }
     }
