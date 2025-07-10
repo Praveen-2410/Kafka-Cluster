@@ -2,24 +2,34 @@
 
 set -e
 
-# Load .env into environment
-export $(grep -v '^#' .env | xargs)
+# Set working directory to the location of this script
+cd "$(dirname "$0")"
 
-# Load IMAGE_FULL from image-tag.txt
-if [ -f image-tag.txt ]; then
-  export IMAGE_FULL=$(cat image-tag.txt)
+# Resolve base paths
+BASE_DIR=$(pwd)/..
+CONFIG_DIR="$BASE_DIR/config"
+TEMPLATE_PATH="$CONFIG_DIR/server.properties.template"
+COMPOSE_TEMPLATE_PATH="$BASE_DIR/docker-compose.single-node.yml.template"
+COMPOSE_OUTPUT_PATH="$BASE_DIR/docker-compose.yml"
+IMAGE_TAG_PATH="$BASE_DIR/image-tag.txt"
+ENV_PATH="$BASE_DIR/../.env"  # root level .env
+
+# Load .env
+if [ ! -f "$ENV_PATH" ]; then
+  echo "❌ ERROR: .env file not found at $ENV_PATH"
+  exit 1
+fi
+export $(grep -v '^#' "$ENV_PATH" | xargs)
+
+# Load image tag
+if [ -f "$IMAGE_TAG_PATH" ]; then
+  export IMAGE_FULL=$(cat "$IMAGE_TAG_PATH")
 else
   echo "❌ ERROR: image-tag.txt not found!"
   exit 1
 fi
 
-# Paths
-TEMPLATE_PATH="shared/server.properties.template"
-COMPOSE_TEMPLATE_PATH="shared/docker-compose.single-node.yml.template"
-COMPOSE_OUTPUT_PATH="docker-compose.yml"
-BASE_DIR=$(pwd)
-
-# Broker details (arrays for clarity)
+# Arrays for each broker
 BROKER_IDS=($BROKER_ID_1 $BROKER_ID_2 $BROKER_ID_3)
 CONTAINER_NAMES=($SINGLE_NODE_CONTAINER_NAME_1 $SINGLE_NODE_CONTAINER_NAME_2 $SINGLE_NODE_CONTAINER_NAME_3)
 
@@ -27,7 +37,7 @@ INTERNAL_PORTS=($BROKER1_INTERNAL_PORT $BROKER2_INTERNAL_PORT $BROKER3_INTERNAL_
 CONTROLLER_PORTS=($BROKER1_CONTROLLER_PORT $BROKER2_CONTROLLER_PORT $BROKER3_CONTROLLER_PORT)
 EXTERNAL_PORTS=($BROKER1_EXTERNAL_PORT $BROKER2_EXTERNAL_PORT $BROKER3_EXTERNAL_PORT)
 
-# Generate server.properties for each broker
+# Generate per-broker config
 for i in 0 1 2; do
   BROKER_ID=${BROKER_IDS[$i]}
   BROKER_NAME="broker-$((i + 1))"
@@ -35,22 +45,21 @@ for i in 0 1 2; do
   CONTROLLER_PORT=${CONTROLLER_PORTS[$i]}
   EXTERNAL_PORT=${EXTERNAL_PORTS[$i]}
 
-  CONFIG_DIR="$BASE_DIR/$BROKER_NAME/config"
-  mkdir -p "$CONFIG_DIR"
+  BROKER_CONFIG_DIR="$BASE_DIR/$BROKER_NAME/config"
+  mkdir -p "$BROKER_CONFIG_DIR"
 
-  echo "Generating server.properties for $BROKER_NAME..."
+  echo "⚙️ Generating server.properties for $BROKER_NAME..."
 
-  # Export variables needed by envsubst
   export NODE_ID=$BROKER_ID
-  export INTERNAL_PORT=$INTERNAL_PORT
-  export CONTROLLER_PORT=$CONTROLLER_PORT
-  export EXTERNAL_PORT=$EXTERNAL_PORT
+  export INTERNAL_PORT
+  export CONTROLLER_PORT
+  export EXTERNAL_PORT
 
-  envsubst < "$TEMPLATE_PATH" > "$CONFIG_DIR/server.properties"
+  envsubst < "$TEMPLATE_PATH" > "$BROKER_CONFIG_DIR/server.properties"
 done
 
 # Generate docker-compose.yml
-echo "Generating docker-compose.yml from $COMPOSE_TEMPLATE_PATH..."
+echo "⚙️ Generating docker-compose.yml from $COMPOSE_TEMPLATE_PATH..."
 envsubst < "$COMPOSE_TEMPLATE_PATH" > "$COMPOSE_OUTPUT_PATH"
 
 echo "✅ All broker configs and docker-compose.yml generated successfully."
