@@ -1,15 +1,18 @@
 #!/bin/bash
 set -e
 
-# Navigate to Multi-Node/scripts directory and move up to Multi-Node
-cd "$(dirname "$0")/.."
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Load .env from root
-if [ ! -f ../.env ]; then
-  echo "❌ ERROR: .env file not found at ../.env (project root)"
+ENV_FILE="$PROJECT_ROOT/.env"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ ERROR: .env file not found at $ENV_FILE"
   exit 1
 fi
-source ../.env
+
+echo "✅ Found .env at: $ENV_FILE"
+source "$ENV_FILE"
 
 # Load image tag
 if [ -f image-tag.txt ]; then
