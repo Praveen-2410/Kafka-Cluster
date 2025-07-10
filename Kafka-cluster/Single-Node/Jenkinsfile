@@ -25,7 +25,7 @@ pipeline {
 
     stage('Inject Image Tag into File') {
       steps {
-        dir('Kafka-Cluster/Single-Node') {
+        dir('Kafka-cluster/Single-Node') {
           script {
             def envVars = readFile('../../.env').split('\n')
             def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
@@ -45,7 +45,7 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        dir('Kafka-Cluster/Single-Node') {
+        dir('Kafka-cluster/Single-Node') {
           sh 'docker build -t $(cat image-tag.txt) .'
         }
       }
@@ -53,7 +53,7 @@ pipeline {
 
     stage('Push Image to Nexus') {
       steps {
-        dir('Kafka-Cluster/Single-Node') {
+        dir('Kafka-cluster/Single-Node') {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
             sh '''
               IMAGE=$(cat image-tag.txt)
@@ -85,36 +85,36 @@ pipeline {
         # Copy root-level files
         scp -o StrictHostKeyChecking=no \
           Kafka-cluster/.env \
-          Kafka-Cluster/Single-Node/image-tag.txt \
+          Kafka-cluster/Single-Node/image-tag.txt \
           $REMOTE_HOST:$REMOTE_DIR/
 
         # Copy certs
         scp -o StrictHostKeyChecking=no \
-          Kafka-Cluster/Single-Node/single-node-certs/broker.p12 \
-          Kafka-Cluster/Single-Node/single-node-certs/ca-truststore.p12 \
+          Kafka-cluster/Single-Node/single-node-certs/broker.p12 \
+          Kafka-cluster/Single-Node/single-node-certs/ca-truststore.p12 \
           $REMOTE_HOST:$REMOTE_DIR/shared/certs/
 
         # Copy JAAS configs
         scp -o StrictHostKeyChecking=no \
-          Kafka-Cluster/Single-Node/config/kafka_jaas.conf \
-          Kafka-Cluster/Single-Node/config/kafka_admin_jaas.conf \
+          Kafka-cluster/Single-Node/config/kafka_jaas.conf \
+          Kafka-cluster/Single-Node/config/kafka_admin_jaas.conf \
           $REMOTE_HOST:$REMOTE_DIR/shared/jaas/
 
         # Copy client-properties
         scp -o StrictHostKeyChecking=no \
-          Kafka-Cluster/Single-Node/config/client-properties/client-ssl.properties \
-          Kafka-Cluster/Single-Node/config/client-properties/admin.properties \
+          Kafka-cluster/Single-Node/config/client-properties/client-ssl.properties \
+          Kafka-cluster/Single-Node/config/client-properties/admin.properties \
           $REMOTE_HOST:$REMOTE_DIR/shared/client-properties/
 
         # Copy scripts
         scp -o StrictHostKeyChecking=no \
-          Kafka-Cluster/Single-Node/scripts/* \
+          Kafka-cluster/Single-Node/scripts/* \
           $REMOTE_HOST:$REMOTE_DIR/shared/scripts/
 
         # Copy server.properties.template
         scp -o StrictHostKeyChecking=no \
-          Kafka-Cluster/Single-Node/config/server.properties.template \
-          Kafka-Cluster/Single-Node/docker-compose.single-node.yml.template \
+          Kafka-cluster/Single-Node/config/server.properties.template \
+          Kafka-cluster/Single-Node/docker-compose.single-node.yml.template \
           $REMOTE_HOST:$REMOTE_DIR/shared/
         
         ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
