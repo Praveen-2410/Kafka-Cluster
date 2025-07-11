@@ -4,7 +4,7 @@
 set -e
 
 # Load env and entity definitions
-source .env
+source ../.env
 source kafka-entities.sh
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
