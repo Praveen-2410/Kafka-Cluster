@@ -221,19 +221,35 @@ EOF
       }
     }
 
-    stage('Verify Cluster & Create Admin User') {
+    stage('Verify Cluster Health & Setup Admin') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/verify-cluster-and-setup-admin.sh'"
+          script {
+            echo "🔍 Verifying Kafka cluster health and setting up admin user..."
+            sh """
+              ssh -o StrictHostKeyChecking=no $NODE1 '
+                cd $REMOTE_DIR/scripts &&
+                bash verify-cluster-health.sh &&
+                bash setup-admin-user.sh
+              '
+            """
+          }
         }
       }
     }
 
-    stage('Create Topics, Users & ACLs') {
+    stage('Create Users, Topics & ACLs') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          echo "Running create_users_topic.sh to create SCRAM users, topics, and ACLs..."
-          sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/create_users_topic.sh'"
+          script {
+            echo "⚙️ Creating Kafka users, topics, and applying ACLs..."
+            sh """
+              ssh -o StrictHostKeyChecking=no $NODE1 '
+                cd $REMOTE_DIR/scripts &&
+                bash create_users_topic.sh
+              '
+            """
+          }
         }
       }
     }
