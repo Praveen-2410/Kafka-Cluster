@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Load environment variables
-source .env
+source ../.env
 
 set -e
 
