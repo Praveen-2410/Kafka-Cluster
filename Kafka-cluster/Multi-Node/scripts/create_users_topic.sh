@@ -49,15 +49,19 @@ topic_exists() {
 create_topic() {
   local topic=$1
   if topic_exists "$topic"; then
-    echo "✅ Topic '$topic' exists"
-  else
-    echo "📦 Creating topic: $topic"
-    sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
-      --bootstrap-server "$BOOTSTRAP" \
-      --command-config "$CONFIG" \
-      --create --topic "$topic" --partitions 3 --replication-factor 3
+    echo "✅ Topic '$topic' already exists. Skipping."
+    return 0
   fi
+
+  echo "📦 Creating topic: $topic"
+  sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
+    --bootstrap-server "$BOOTSTRAP" \
+    --command-config "$CONFIG" \
+    --create --topic "$topic" --partitions 3 --replication-factor 3 2>/dev/null \
+  && echo "✅ Topic '$topic' created." \
+  || echo "⚠️ Warning: Topic '$topic' may already exist or failed to create."
 }
+
 
 # Helper: Check if ACL exists
 acl_exists() {
