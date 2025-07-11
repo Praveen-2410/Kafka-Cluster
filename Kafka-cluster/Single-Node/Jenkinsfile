@@ -46,7 +46,7 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         dir('Kafka-cluster/Single-Node') {
-          sh 'docker build -t $(cat Single-Node/image-tag.txt) .'
+          sh 'docker build -t $(cat image-tag.txt) .'
         }
       }
     }
