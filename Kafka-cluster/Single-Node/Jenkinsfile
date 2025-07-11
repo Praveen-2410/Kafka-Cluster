@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    REMOTE_HOST = "ec2-user@172.31.28.136"
+    REMOTE_HOST = "ec2-user@172.31.88.16"
     REMOTE_DIR = "/home/ec2-user/kafka-cluster"
   }
 
