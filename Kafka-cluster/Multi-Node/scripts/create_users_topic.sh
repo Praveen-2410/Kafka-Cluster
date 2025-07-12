@@ -2,8 +2,9 @@
 
 # Purpose: Create Kafka users, topics, and ACLs
 set -e
+set -o pipefail
 
-# Load env and entity definitions
+# Load environment and entities
 source ../.env
 source kafka-entities.sh
 
@@ -15,7 +16,12 @@ echo "CONTAINER_NAME: $CONTAINER_NAME"
 echo "BOOTSTRAP: $BOOTSTRAP"
 echo "Admin config: $CONFIG"
 
-# Helper: Check if user exists
+# 🔧 Helper: Remove Optional[...] wrappers
+sanitize_topic_name() {
+  echo "$1" | sed 's/Optional\[//;s/\]//'
+}
+
+# ✅ Check if user exists
 user_exists() {
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
     --bootstrap-server "$BOOTSTRAP" \
@@ -24,7 +30,7 @@ user_exists() {
     grep -q "SCRAM-SHA-512"
 }
 
-# Helper: Create user if not exists
+# ✅ Create user if not exists
 create_user() {
   local user=$1
   local password=${USER_PASSWORDS[$user]}
@@ -41,32 +47,34 @@ create_user() {
   fi
 }
 
-# Check if topic exists
 topic_exists() {
-  local topic=$1
+  local topic
+  topic=$(sanitize_topic_name "$1")
+
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP" \
     --command-config "$CONFIG" \
-    --describe --topic "$topic" > /dev/null 2>&1
-  return $?
+    --describe --topic "$topic" >/dev/null 2>&1
 }
 
-# Create topic if not exists
+
+# ✅ Create topic if not exists
 create_topic() {
-  local topic=$1
+  local topic
+  topic=$(sanitize_topic_name "$1")
+
+# Check if topic exists
   if topic_exists "$topic"; then
     echo "✅ Topic '$topic' already exists. Skipping."
     return 0
   fi
 
   echo "📦 Creating topic: $topic"
-  sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
-    --bootstrap-server "$BOOTSTRAP" \
-    --command-config "$CONFIG" \
-    --create --topic "$topic" \
-    --partitions 3 --replication-factor 3
-
-  if [ $? -eq 0 ]; then
+  if sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
+      --bootstrap-server "$BOOTSTRAP" \
+      --command-config "$CONFIG" \
+      --create --topic "$topic" \
+      --partitions 3 --replication-factor 3; then
     echo "✅ Successfully created topic '$topic'"
   else
     echo "❌ Failed to create topic '$topic'"
@@ -75,9 +83,9 @@ create_topic() {
 }
 
 
-# Helper: Check if ACL exists
+# ✅ Check if ACL exists
 acl_exists() {
-  local topic=$1
+  local topic=$(sanitize_topic_name "$1")
   local user=$2
   local op=$3
 
@@ -88,9 +96,9 @@ acl_exists() {
     grep -iq "User:$user.*operation=$op"
 }
 
-# Helper: Grant ACL if not already exists
+# ✅ Grant ACL if not already exists
 grant_acl() {
-  local topic=$1
+  local topic=$(sanitize_topic_name "$1")
   local user=$2
   local op=$3
 
@@ -108,26 +116,24 @@ grant_acl() {
 
 echo "🚀 Kafka Users, Topics & ACLs Setup Starting..."
 
-# 1. Create Users
+# 1️⃣ Create Users
 for user in "${!USER_PASSWORDS[@]}"; do
   create_user "$user"
 done
 
-# 2. Create Topics
-for raw_topic in "${TOPICS[@]}"; do
-  topic=$(echo "$raw_topic" | sed 's/Optional\[//;s/\]//')
+# 2️⃣ Create Topics
+for topic in "${TOPICS[@]}"; do
   create_topic "$topic"
 done
 
-# 3. Apply Read ACLs
-for raw_topic in "${!READ_ACCESS[@]}"; do
-  topic=$(echo "$raw_topic" | sed 's/Optional\[//;s/\]//')
+# 3️⃣ Apply Read ACLs
+for topic in "${!READ_ACCESS[@]}"; do
   for user in ${READ_ACCESS[$topic]}; do
     grant_acl "$topic" "$user" "Read"
   done
 done
 
-# 4. Apply Write ACLs
+# 4️⃣ Apply Write ACLs
 for topic in "${!WRITE_ACCESS[@]}"; do
   for user in ${WRITE_ACCESS[$topic]}; do
     grant_acl "$topic" "$user" "Write"
