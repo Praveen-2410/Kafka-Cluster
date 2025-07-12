@@ -1,4 +1,4 @@
-#!/bin/bash
+#etc#!/bin/bash
 
 # Purpose: Ensure Kafka container is up, check KRaft quorum, setup admin user and ACLs
 # Usage: Run on host where Broker-1 is running
