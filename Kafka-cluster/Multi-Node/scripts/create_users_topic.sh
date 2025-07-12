@@ -11,6 +11,10 @@ CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
 BOOTSTRAP="${BROKER1_IP}:9094"
 CONFIG="/opt/kafka/config/client-properties/admin.properties"
 
+echo "CONTAINER_NAME: $CONTAINER_NAME"
+echo "BOOTSTRAP: $BOOTSTRAP"
+echo "Admin config: $CONFIG"
+
 # Helper: Check if user exists
 user_exists() {
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
@@ -102,12 +106,14 @@ for user in "${!USER_PASSWORDS[@]}"; do
 done
 
 # 2. Create Topics
-for topic in "${TOPICS[@]}"; do
+for raw_topic in "${TOPICS[@]}"; do
+  topic=$(echo "$raw_topic" | sed 's/Optional\[//;s/\]//')
   create_topic "$topic"
 done
 
 # 3. Apply Read ACLs
-for topic in "${!READ_ACCESS[@]}"; do
+for raw_topic in "${!READ_ACCESS[@]}"; do
+  topic=$(echo "$raw_topic" | sed 's/Optional\[//;s/\]//')
   for user in ${READ_ACCESS[$topic]}; do
     grant_acl "$topic" "$user" "Read"
   done
