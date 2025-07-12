@@ -41,15 +41,17 @@ create_user() {
   fi
 }
 
-# Helper: Check if topic exists
+# Check if topic exists
 topic_exists() {
+  local topic=$1
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP" \
     --command-config "$CONFIG" \
-    --list 2>/dev/null | grep -Fxq "$1"
+    --describe --topic "$topic" > /dev/null 2>&1
+  return $?
 }
 
-# Helper: Create topic if not exists
+# Create topic if not exists
 create_topic() {
   local topic=$1
   if topic_exists "$topic"; then
@@ -61,9 +63,15 @@ create_topic() {
   sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP" \
     --command-config "$CONFIG" \
-    --create --topic "$topic" --partitions 3 --replication-factor 3 2>/dev/null \
-  && echo "✅ Topic '$topic' created." \
-  || echo "⚠️ Warning: Topic '$topic' may already exist or failed to create."
+    --create --topic "$topic" \
+    --partitions 3 --replication-factor 3
+
+  if [ $? -eq 0 ]; then
+    echo "✅ Successfully created topic '$topic'"
+  else
+    echo "❌ Failed to create topic '$topic'"
+    exit 1
+  fi
 }
 
 
