@@ -221,38 +221,131 @@ EOF
       }
     }
 
-    stage('Verify Cluster Health & Setup Admin') {
-      steps {
-        sshagent(credentials: ['ec2-ssh-key']) {
-          script {
-            echo "🔍 Verifying Kafka cluster health and setting up admin user..."
-            sh """
-              ssh -o StrictHostKeyChecking=no $NODE1 '
-                cd $REMOTE_DIR/scripts &&
-                bash verify-cluster-health.sh &&
-                bash setup-admin-user.sh
-              '
-            """
-          }
-        }
-      }
-    }
+stage('Verify Initial Cluster Health') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        def maxRetries = 6
+        def sleepSeconds = 10
+        def success = false
 
-    stage('Create Users, Topics & ACLs') {
-      steps {
-        sshagent(credentials: ['ec2-ssh-key']) {
-          script {
-            echo "⚙️ Creating Kafka users, topics, and applying ACLs..."
-            sh """
+        for (int i = 1; i <= maxRetries; i++) {
+          echo "🔁 Attempt $i: Checking cluster health..."
+          def result = sh(
+            script: """
               ssh -o StrictHostKeyChecking=no $NODE1 '
                 cd $REMOTE_DIR/scripts &&
-                bash create_users_topic.sh
+                bash verify-cluster-health.sh
               '
-            """
+            """,
+            returnStatus: true
+          )
+
+          if (result == 0) {
+            echo "✅ Cluster is healthy."
+            success = true
+            break
+          } else {
+            echo "❌ Cluster not healthy. Retrying in ${sleepSeconds}s..."
+            sleep sleepSeconds
           }
+        }
+
+        if (!success) {
+          error "🛑 Cluster did not become healthy after ${maxRetries} attempts!"
         }
       }
     }
+  }
+}
+
+stage('Setup Admin User') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      sh """
+        ssh -o StrictHostKeyChecking=no $NODE1 '
+          cd $REMOTE_DIR/scripts &&
+          bash setup-admin-user.sh
+        '
+      """
+    }
+  }
+}
+
+stage('Update super.users and Restart Brokers') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        def nodes = [env.NODE1, env.NODE2, env.NODE3]
+
+        for (node in nodes) {
+          sh """
+            ssh -o StrictHostKeyChecking=no $node '
+              sed -i "s|^super.users=.*|super.users=User:admin;User:controller|" $REMOTE_DIR/config/server.properties &&
+              docker-compose -f $REMOTE_DIR/docker-compose.yml restart
+            '
+          """
+        }
+      }
+    }
+  }
+}
+
+stage('Re-verify Cluster Health Post-Restart') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        def maxRetries = 6
+        def sleepSeconds = 10
+        def success = false
+
+        for (int i = 1; i <= maxRetries; i++) {
+          echo "🔁 Attempt $i: Re-checking cluster health..."
+          def result = sh(
+            script: """
+              ssh -o StrictHostKeyChecking=no $NODE1 '
+                cd $REMOTE_DIR/scripts &&
+                bash verify-cluster-health.sh
+              '
+            """,
+            returnStatus: true
+          )
+
+          if (result == 0) {
+            echo "✅ Cluster is healthy after restart."
+            success = true
+            break
+          } else {
+            echo "❌ Still unhealthy. Retrying in ${sleepSeconds}s..."
+            sleep sleepSeconds
+          }
+        }
+
+        if (!success) {
+          error "🛑 Cluster not healthy after restart!"
+        }
+      }
+    }
+  }
+}
+
+
+stage('Create Users, Topics & ACLs') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        echo "⚙️ Creating Kafka users, topics, and applying ACLs..."
+        sh """
+          ssh -o StrictHostKeyChecking=no $NODE1 '
+            cd $REMOTE_DIR/scripts &&
+            bash create_users_topic.sh
+          '
+        """
+      }
+    }
+  }
+}
+
 
 stage('Deployment Summary') {
   steps {
