@@ -281,7 +281,17 @@ stage('Update super.users and Restart Brokers') {
         for (node in nodes) {
           sh """
             ssh -o StrictHostKeyChecking=no $node '
-              sed -i "s|^super.users=.*|super.users=User:admin;User:ANONYMOUS|" $REMOTE_DIR/config/server.properties &&
+              # Update or insert super.users
+              grep -q "^super.users=" $REMOTE_DIR/config/server.properties &&
+              sed -i "s|^super.users=.*|super.users=User:admin;User:ANONYMOUS|" $REMOTE_DIR/config/server.properties ||
+              echo "super.users=User:admin;User:ANONYMOUS" >> $REMOTE_DIR/config/server.properties
+
+              # Update or insert allow.everyone.if.no.acl.found
+              grep -q "^allow.everyone.if.no.acl.found=" $REMOTE_DIR/config/server.properties &&
+              sed -i "s|^allow.everyone.if.no.acl.found=.*|allow.everyone.if.no.acl.found=false|" $REMOTE_DIR/config/server.properties ||
+              echo "allow.everyone.if.no.acl.found=false" >> $REMOTE_DIR/config/server.properties
+
+              # Restart brokers
               docker-compose -f $REMOTE_DIR/docker-compose.yml restart
             '
           """
