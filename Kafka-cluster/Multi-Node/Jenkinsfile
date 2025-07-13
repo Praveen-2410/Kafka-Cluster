@@ -281,7 +281,7 @@ stage('Update super.users and Restart Brokers') {
         for (node in nodes) {
           sh """
             ssh -o StrictHostKeyChecking=no $node '
-              sed -i "s|^super.users=.*|super.users=User:admin;User:controller|" $REMOTE_DIR/config/server.properties &&
+              sed -i "s|^super.users=.*|super.users=User:admin;User:ANONYMOUS|" $REMOTE_DIR/config/server.properties &&
               docker-compose -f $REMOTE_DIR/docker-compose.yml restart
             '
           """
