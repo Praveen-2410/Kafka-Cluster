@@ -2,34 +2,55 @@ pipeline {
   agent any
 
   environment {
-    REMOTE_DIR = "/home/ec2-user/kafka-cluster"
     NODE1 = "ec2-user@172.31.24.96"
     NODE2 = "ec2-user@172.31.30.30"
     NODE3 = "ec2-user@172.31.24.181"
+
+    REMOTE_DIR = ""
+    MULTI_NODE_REMOTE_DIR = ""
+    KAFKA_IMAGE_REPO = ""
+    KAFKA_BASE_IMAGE = ""
+    GIT_BRANCH = ""
+    GIT_REPO_URL = ""
+    REMOTE_USER = ""
   }
 
   stages {
+    stage('Load .env Variables') {
+      steps {
+        script {
+          def envLines = readFile('.env').split('\n')
+          for (line in envLines) {
+            if (line && line.contains('=')) {
+              def (key, value) = line.split('=', 2)
+              env["${key.trim()}"] = value.trim()
+            }
+          }
+          env.REMOTE_DIR = env.REMOTE_BASE_DIR
+        }
+      }
+    }
 
     stage('Generate Dynamic Tag') {
       steps {
         script {
           def timestamp = sh(script: "date +%Y%m%d%H%M", returnStdout: true).trim()
-          env.IMAGE_TAG = "npc-uae-kafka-${timestamp}:latest"
+          env.IMAGE_TAG = "npc-${env.KAFKA_IMAGE_REPO}-${timestamp}:latest"
         }
       }
     }
 
     stage('Checkout Git Repo') {
       steps {
-        git branch: 'main', url: 'https://github.com/Praveen-2410/Kafka-Cluster.git'
+        git branch: "${env.GIT_BRANCH}", url: "${env.GIT_REPO_URL}"
       }
     }
 
     stage('Inject Image Tag into File') {
       steps {
-        dir('Kafka-cluster/Multi-Node') {
+        dir(env.MULTI_NODE_REMOTE_DIR) {
           script {
-            def envVars = readFile("${env.WORKSPACE}/Kafka-cluster/.env").split('\n')
+            def envVars = readFile("${env.WORKSPACE}/.env").split('\n')
             def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
             def nexusHost = nexusHostLine?.split('=')[-1]?.trim()
 
@@ -37,7 +58,7 @@ pipeline {
               error "NEXUS_HOST not defined in .env file!"
             }
 
-            env.IMAGE_FULL = "${nexusHost}/uae-kafka/${env.IMAGE_TAG}"
+            env.IMAGE_FULL = "${nexusHost}/${env.KAFKA_IMAGE_REPO}/${env.IMAGE_TAG}"
             echo "Using image: ${env.IMAGE_FULL}"
             writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
           }
@@ -55,7 +76,7 @@ pipeline {
 
     stage('Push Image to Nexus') {
       steps {
-        dir('Kafka-cluster/Multi-Node') {
+        dir(env.MULTI_NODE_REMOTE_DIR) {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
             sh '''
               IMAGE=$(cat image-tag.txt)
@@ -67,79 +88,76 @@ pipeline {
       }
     }
 
-stage('Distribute Files to All Nodes') {
-  steps {
-    sshagent(credentials: ['ec2-ssh-key']) {
-      script {
-        def nodes = [env.NODE1, env.NODE2, env.NODE3]
-        for (node in nodes) {
-          sh """
-            ssh -o StrictHostKeyChecking=no ${node} '
-              BASE_DIR="${REMOTE_DIR}"
+    stage('Distribute Files to All Nodes') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          script {
+            def nodes = [env.NODE1, env.NODE2, env.NODE3]
+            for (node in nodes) {
+              sh """
+                ssh -o StrictHostKeyChecking=no ${node} '
+                  BASE_DIR="${env.REMOTE_DIR}"
+                  if [ -d "$BASE_DIR" ]; then
+                    sudo chown -R 1000:1000 "$BASE_DIR"
+                  fi
+                  mkdir -p "$BASE_DIR/data"
+                  mkdir -p "$BASE_DIR/config/certs"
+                  mkdir -p "$BASE_DIR/config/client-properties"
+                  mkdir -p "$BASE_DIR/scripts"
+                  chmod -R 755 "$BASE_DIR"
+                '
+                # Copy core files
+                scp -o StrictHostKeyChecking=no \
+                  Kafka-cluster/.env \
+                  ${env.MULTI_NODE_REMOTE_DIR}/image-tag.txt \
+                  ${env.MULTI_NODE_REMOTE_DIR}/docker-compose.yml.template \
+                  ${node}:${env.REMOTE_DIR}/
 
-              if [ -d "\$BASE_DIR" ]; then
-                sudo chown -R ec2-user:ec2-user "\$BASE_DIR"
-              fi
+                # Copy server properties    
+                scp -o StrictHostKeyChecking=no \
+                  ${env.MULTI_NODE_REMOTE_DIR}/config/server.properties.template \
+                  ${node}:${env.REMOTE_DIR}/config/
 
-              mkdir -p "\$BASE_DIR/data"
-              mkdir -p "\$BASE_DIR/config/certs"
-              mkdir -p "\$BASE_DIR/config/client-properties"
-              mkdir -p "\$BASE_DIR/scripts"
-              chmod -R 755 "\$BASE_DIR"
-            '
+                # Copy JAAS config files
+                scp -o StrictHostKeyChecking=no \
+                  ${env.MULTI_NODE_REMOTE_DIR}/config/kafka_jaas.conf \
+                  ${env.MULTI_NODE_REMOTE_DIR}/config/kafka_admin_jaas.conf \
+                  ${node}:${env.REMOTE_DIR}/config/
 
-            # Copy core files
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/.env \
-              Kafka-cluster/Multi-Node/image-tag.txt \
-              Kafka-cluster/Multi-Node/docker-compose.yml.template \
-              ${node}:${REMOTE_DIR}/
+                # Copy client SSL and admin props
+                scp -o StrictHostKeyChecking=no \
+                  ${env.MULTI_NODE_REMOTE_DIR}/config/client-properties/client-ssl.properties \
+                  ${env.MULTI_NODE_REMOTE_DIR}/config/client-properties/admin.properties \
+                  ${node}:${env.REMOTE_DIR}/config/client-properties/
 
-            # Copy server properties
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/Multi-Node/config/server.properties.template \
-              ${node}:${REMOTE_DIR}/config/
+                # Copy certificate files
+                scp -o StrictHostKeyChecking=no \
+                  ${env.MULTI_NODE_REMOTE_DIR}/config/multi-node-certs/*.p12 \
+                  ${node}:${env.REMOTE_DIR}/config/certs/
 
-            # Copy JAAS config files
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/Multi-Node/config/kafka_jaas.conf \
-              Kafka-cluster/Multi-Node/config/kafka_admin_jaas.conf \
-              ${node}:${REMOTE_DIR}/config/
+                # Copy scripts
+                scp -o StrictHostKeyChecking=no \
+                  ${env.MULTI_NODE_REMOTE_DIR}/scripts/* \
+                  ${node}:${env.REMOTE_DIR}/scripts/
 
-            # Copy client SSL and admin props
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/Multi-Node/config/client-properties/client-ssl.properties \
-              Kafka-cluster/Multi-Node/config/client-properties/admin.properties \
-              ${node}:${REMOTE_DIR}/config/client-properties/
-
-            # Copy certificate files
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/Multi-Node/config/multi-node-certs/*.p12 \
-              ${node}:${REMOTE_DIR}/config/certs/
-
-            # Copy scripts
-            scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/Multi-Node/scripts/* \
-              ${node}:${REMOTE_DIR}/scripts/
-
-            # Set permissions
-            ssh -o StrictHostKeyChecking=no ${node} '
-              chmod 644 $REMOTE_DIR/config/certs/*.p12
-              chmod +x $REMOTE_DIR/scripts/*.sh
-            '
-          """
+                # Set permissions
+                ssh -o StrictHostKeyChecking=no ${node} '
+                  chmod 644 ${env.REMOTE_DIR}/config/certs/*.p12
+                  chmod +x ${env.REMOTE_DIR}/scripts/*.sh
+                '
+              """
+            }
+          }
         }
       }
     }
-  }
-}
 
     stage('Generate Configs (envsubst)') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 1'"
-          sh "ssh -o StrictHostKeyChecking=no $NODE2 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 2'"
-          sh "ssh -o StrictHostKeyChecking=no $NODE3 'cd $REMOTE_DIR && bash scripts/generate-configs.sh 3'"
+          sh "ssh -o StrictHostKeyChecking=no ${env.NODE1} 'cd ${env.REMOTE_DIR} && bash scripts/generate-configs.sh 1'"
+          sh "ssh -o StrictHostKeyChecking=no ${env.NODE2} 'cd ${env.REMOTE_DIR} && bash scripts/generate-configs.sh 2'"
+          sh "ssh -o StrictHostKeyChecking=no ${env.NODE3} 'cd ${env.REMOTE_DIR} && bash scripts/generate-configs.sh 3'"
         }
       }
     }
@@ -153,7 +171,7 @@ stage('Distribute Files to All Nodes') {
 
             for (node in nodes) {
               def id = sh(
-                script: "ssh -o StrictHostKeyChecking=no $node 'grep cluster.id $REMOTE_DIR/data/meta.properties | cut -d= -f2 || true'",
+                script: "ssh -o StrictHostKeyChecking=no $node 'grep cluster.id ${env.REMOTE_DIR}/data/meta.properties | cut -d= -f2 || true'",
                 returnStdout: true
               ).trim()
               existingClusterIds.add(id ?: '')
@@ -169,21 +187,21 @@ stage('Distribute Files to All Nodes') {
               echo "Mismatched cluster IDs found. Backing up and cleaning..."
               def timestamp = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
               for (node in nodes) {
-                sh "ssh -o StrictHostKeyChecking=no $node 'mkdir -p $REMOTE_DIR/data-dir-backup-${timestamp} && cp -r $REMOTE_DIR/data/* $REMOTE_DIR/data-dir-backup-${timestamp}/ && rm -rf $REMOTE_DIR/data/*'"
+                sh "ssh -o StrictHostKeyChecking=no $node 'mkdir -p ${env.REMOTE_DIR}/data-dir-backup-${timestamp} && cp -r ${env.REMOTE_DIR}/data/* ${env.REMOTE_DIR}/data-dir-backup-${timestamp}/ && rm -rf ${env.REMOTE_DIR}/data/*'"
               }
             }
 
-            sh 'docker pull apache/kafka:4.0.0'
-            def clusterId = sh(script: "docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
+            sh "docker pull ${env.KAFKA_BASE_IMAGE}"
+            def clusterId = sh(script: "docker run --rm ${env.KAFKA_BASE_IMAGE} /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
             echo "Generated Cluster ID: ${clusterId}"
 
             for (node in nodes) {
               sh """
                 ssh -o StrictHostKeyChecking=no $node '
                   docker run --rm \
-                    -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties \
-                    -v $REMOTE_DIR/data:/var/lib/kafka/data \
-                    apache/kafka:4.0.0 \
+                    -v ${env.REMOTE_DIR}/config/server.properties:/opt/kafka/config/kraft/server.properties \
+                    -v ${env.REMOTE_DIR}/data:/var/lib/kafka/data \
+                    ${env.KAFKA_BASE_IMAGE} \
                     /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties
                 '
               """
@@ -204,13 +222,13 @@ stage('Distribute Files to All Nodes') {
 ssh -o StrictHostKeyChecking=no $node \\
 NEXUS_USER='$NEXUS_USER' NEXUS_PASS='$NEXUS_PASS' bash -s <<'EOF'
 set -e
-IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
+IMAGE=\$(cat ${env.REMOTE_DIR}/image-tag.txt)
 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
 echo "IMAGE: \$IMAGE"
 echo "REGISTRY: \$REGISTRY"
 echo "Logging in..."
 echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
-cd $REMOTE_DIR
+cd ${env.REMOTE_DIR}
 docker-compose -f docker-compose.yml up -d
 EOF
 """
@@ -221,148 +239,120 @@ EOF
       }
     }
 
-stage('Verify Initial Cluster Health') {
-  steps {
-    sshagent(credentials: ['ec2-ssh-key']) {
-      script {
-        def maxRetries = 6
-        def sleepSeconds = 10
-        def success = false
+    stage('Verify Initial Cluster Health') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          script {
+            def maxRetries = 6
+            def sleepSeconds = 10
+            def success = false
 
-        for (int i = 1; i <= maxRetries; i++) {
-          echo "🔁 Attempt $i: Checking cluster health..."
-          def result = sh(
-            script: """
-              ssh -o StrictHostKeyChecking=no $NODE1 '
-                cd $REMOTE_DIR/scripts &&
-                bash verify-cluster-health.sh
-              '
-            """,
-            returnStatus: true
-          )
+            for (int i = 1; i <= maxRetries; i++) {
+              echo "🔁 Attempt $i: Checking cluster health..."
+              def result = sh(
+                script: """
+                ssh -o StrictHostKeyChecking=no ${env.NODE1} 'cd ${env.REMOTE_DIR}/scripts && bash verify-cluster-health.sh'",
+                returnStatus: true
+              )
 
-          if (result == 0) {
-            echo "✅ Cluster is healthy."
-            success = true
-            break
-          } else {
-            echo "❌ Cluster not healthy. Retrying in ${sleepSeconds}s..."
-            sleep sleepSeconds
+              if (result == 0) {
+                echo "✅ Cluster is healthy."
+                success = true
+                break
+              } else {
+                echo "❌ Cluster not healthy. Retrying in ${sleepSeconds}s..."
+                sleep sleepSeconds
+              }
+            }
+
+            if (!success) {
+              error "🛑 Cluster did not become healthy after ${maxRetries} attempts!"
+            }
           }
         }
+      }
+    }
 
-        if (!success) {
-          error "🛑 Cluster did not become healthy after ${maxRetries} attempts!"
+    stage('Setup Admin User') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          sh "ssh -o StrictHostKeyChecking=no ${env.NODE1} 'cd ${env.REMOTE_DIR}/scripts && bash setup-admin-user.sh'"
         }
       }
     }
-  }
-}
 
-stage('Setup Admin User') {
-  steps {
-    sshagent(credentials: ['ec2-ssh-key']) {
-      sh """
-        ssh -o StrictHostKeyChecking=no $NODE1 '
-          cd $REMOTE_DIR/scripts &&
-          bash setup-admin-user.sh
-        '
-      """
-    }
-  }
-}
+    stage('Update super.users and Restart Brokers') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          script {
+            def nodes = [env.NODE1, env.NODE2, env.NODE3]
+            for (node in nodes) {
+              sh """
+                ssh -o StrictHostKeyChecking=no $node '
+                  grep -q "^super.users=" ${env.REMOTE_DIR}/config/server.properties &&
+                  sed -i "s|^super.users=.*|super.users=User:admin;User:ANONYMOUS|" ${env.REMOTE_DIR}/config/server.properties ||
+                  echo "super.users=User:admin;User:ANONYMOUS" >> ${env.REMOTE_DIR}/config/server.properties
 
-stage('Update super.users and Restart Brokers') {
-  steps {
-    sshagent(credentials: ['ec2-ssh-key']) {
-      script {
-        def nodes = [env.NODE1, env.NODE2, env.NODE3]
+                  grep -q "^allow.everyone.if.no.acl.found=" ${env.REMOTE_DIR}/config/server.properties &&
+                  sed -i "s|^allow.everyone.if.no.acl.found=.*|allow.everyone.if.no.acl.found=false|" ${env.REMOTE_DIR}/config/server.properties ||
+                  echo "allow.everyone.if.no.acl.found=false" >> ${env.REMOTE_DIR}/config/server.properties
 
-        for (node in nodes) {
-          sh """
-            ssh -o StrictHostKeyChecking=no $node '
-              # Update or insert super.users
-              grep -q "^super.users=" $REMOTE_DIR/config/server.properties &&
-              sed -i "s|^super.users=.*|super.users=User:admin;User:ANONYMOUS|" $REMOTE_DIR/config/server.properties ||
-              echo "super.users=User:admin;User:ANONYMOUS" >> $REMOTE_DIR/config/server.properties
-
-              # Update or insert allow.everyone.if.no.acl.found
-              grep -q "^allow.everyone.if.no.acl.found=" $REMOTE_DIR/config/server.properties &&
-              sed -i "s|^allow.everyone.if.no.acl.found=.*|allow.everyone.if.no.acl.found=false|" $REMOTE_DIR/config/server.properties ||
-              echo "allow.everyone.if.no.acl.found=false" >> $REMOTE_DIR/config/server.properties
-
-              # Restart brokers
-              docker-compose -f $REMOTE_DIR/docker-compose.yml restart
-            '
-          """
-        }
-      }
-    }
-  }
-}
-
-stage('Re-verify Cluster Health Post-Restart') {
-  steps {
-    sshagent(credentials: ['ec2-ssh-key']) {
-      script {
-        def maxRetries = 6
-        def sleepSeconds = 10
-        def success = false
-
-        for (int i = 1; i <= maxRetries; i++) {
-          echo "🔁 Attempt $i: Re-checking cluster health..."
-          def result = sh(
-            script: """
-              ssh -o StrictHostKeyChecking=no $NODE1 '
-                cd $REMOTE_DIR/scripts &&
-                bash verify-cluster-health.sh
-              '
-            """,
-            returnStatus: true
-          )
-
-          if (result == 0) {
-            echo "✅ Cluster is healthy after restart."
-            success = true
-            break
-          } else {
-            echo "❌ Still unhealthy. Retrying in ${sleepSeconds}s..."
-            sleep sleepSeconds
+                  docker-compose -f ${env.REMOTE_DIR}/docker-compose.yml restart
+                '
+              """
+            }
           }
         }
+      }
+    }
 
-        if (!success) {
-          error "🛑 Cluster not healthy after restart!"
+    stage('Re-verify Cluster Health Post-Restart') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          script {
+            def maxRetries = 6
+            def sleepSeconds = 10
+            def success = false
+
+            for (int i = 1; i <= maxRetries; i++) {
+              echo "🔁 Attempt $i: Re-checking cluster health..."
+              def result = sh(
+                script: "ssh -o StrictHostKeyChecking=no ${env.NODE1} 'cd ${env.REMOTE_DIR}/scripts && bash verify-cluster-health.sh'",
+                returnStatus: true
+              )
+
+              if (result == 0) {
+                echo "✅ Cluster is healthy after restart."
+                success = true
+                break
+              } else {
+                echo "❌ Still unhealthy. Retrying in ${sleepSeconds}s..."
+                sleep sleepSeconds
+              }
+            }
+
+            if (!success) {
+              error "🛑 Cluster not healthy after restart!"
+            }
+          }
         }
       }
     }
-  }
-}
 
+    stage('Create Users, Topics & ACLs') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+          sh "ssh -o StrictHostKeyChecking=no ${env.NODE1} 'cd ${env.REMOTE_DIR}/scripts && bash create_users_topic.sh'"
+        }
+      }
+    }
 
-stage('Create Users, Topics & ACLs') {
-  steps {
-    sshagent(credentials: ['ec2-ssh-key']) {
-      script {
-        echo "⚙️ Creating Kafka users, topics, and applying ACLs..."
-        sh """
-          ssh -o StrictHostKeyChecking=no $NODE1 '
-            cd $REMOTE_DIR/scripts &&
-            bash create_users_topic.sh
-          '
+    stage('Deployment Summary') {
+      steps {
+        echo """
+        Multi-Node Kafka Cluster Deployed Successfully
         """
       }
     }
-  }
-}
-
-
-stage('Deployment Summary') {
-  steps {
-    echo """
-    Multi-Node Kafka Cluster Deployed Successfully
-    """
-  }
-}
   }
 }
