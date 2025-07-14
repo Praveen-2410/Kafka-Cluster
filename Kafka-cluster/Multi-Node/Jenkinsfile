@@ -16,17 +16,28 @@ pipeline {
   }
 
   stages {
+
     stage('Load .env Variables') {
       steps {
         script {
           def envLines = readFile('Kafka-cluster/.env').split('\n')
+          def envMap = [:]
           for (line in envLines) {
             if (line && line.contains('=')) {
               def (key, value) = line.split('=', 2)
-              env["${key.trim()}"] = value.trim()
+              envMap[key.trim()] = value.trim()
             }
           }
-          env.REMOTE_DIR = env.REMOTE_BASE_DIR
+
+          // Assign only expected environment variables from .env
+          env.REMOTE_BASE_DIR       = envMap['REMOTE_BASE_DIR']
+          env.MULTI_NODE_REMOTE_DIR = envMap['MULTI_NODE_REMOTE_DIR']
+          env.KAFKA_IMAGE_REPO      = envMap['KAFKA_IMAGE_REPO']
+          env.KAFKA_BASE_IMAGE      = envMap['KAFKA_BASE_IMAGE']
+          env.GIT_BRANCH            = envMap['GIT_BRANCH']
+          env.GIT_REPO_URL          = envMap['GIT_REPO_URL']
+          env.REMOTE_USER           = envMap['REMOTE_USER']
+          env.REMOTE_DIR            = envMap['REMOTE_BASE_DIR']
         }
       }
     }
