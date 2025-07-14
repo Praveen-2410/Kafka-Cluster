@@ -3,6 +3,8 @@ pipeline {
 
   environment {
     REMOTE_DIR = "/home/ec2-user/kafka-cluster"
+    MULTI_NODE_REMOTE_DIR = "Kafka-cluster/Multi-Node"
+    KAFKA_BASE_IMAGE = "apache/kafka:4.0.0"
     NODE1 = "ec2-user@172.31.24.96"
     NODE2 = "ec2-user@172.31.30.30"
     NODE3 = "ec2-user@172.31.24.181"
@@ -21,7 +23,7 @@ pipeline {
 
     stage('Inject Image Tag into File') {
       steps {
-        dir('Kafka-cluster/Multi-Node') {
+        dir("$MULTI_NODE_REMOTE_DIR") {
           script {
             def envVars = readFile("${env.WORKSPACE}/Kafka-cluster/.env").split('\n')
             def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
@@ -49,7 +51,7 @@ pipeline {
 
     stage('Push Image to Nexus') {
       steps {
-        dir('Kafka-cluster/Multi-Node') {
+        dir("$MULTI_NODE_REMOTE_DIR") {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
             sh '''
               IMAGE=$(cat image-tag.txt)
@@ -72,7 +74,7 @@ stage('Distribute Files to All Nodes') {
               BASE_DIR="${REMOTE_DIR}"
 
               if [ -d "\$BASE_DIR" ]; then
-                sudo chown -R ec2-user:ec2-user "\$BASE_DIR"
+                sudo chown -R 1000:1000 "\$BASE_DIR"
               fi
 
               mkdir -p "\$BASE_DIR/data"
@@ -85,35 +87,35 @@ stage('Distribute Files to All Nodes') {
             # Copy core files
             scp -o StrictHostKeyChecking=no \
               Kafka-cluster/.env \
-              Kafka-cluster/Multi-Node/image-tag.txt \
-              Kafka-cluster/Multi-Node/docker-compose.yml.template \
+              $MULTI_NODE_REMOTE_DIR/image-tag.txt \
+              $MULTI_NODE_REMOTE_DIR/docker-compose.yml.template \
               ${node}:${REMOTE_DIR}/
 
             # Copy server properties
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/Multi-Node/config/server.properties.template \
+              $MULTI_NODE_REMOTE_DIR/config/server.properties.template \
               ${node}:${REMOTE_DIR}/config/
 
             # Copy JAAS config files
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/Multi-Node/config/kafka_jaas.conf \
-              Kafka-cluster/Multi-Node/config/kafka_admin_jaas.conf \
+              $MULTI_NODE_REMOTE_DIR/config/kafka_jaas.conf \
+              $MULTI_NODE_REMOTE_DIR/config/kafka_admin_jaas.conf \
               ${node}:${REMOTE_DIR}/config/
 
             # Copy client SSL and admin props
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/Multi-Node/config/client-properties/client-ssl.properties \
-              Kafka-cluster/Multi-Node/config/client-properties/admin.properties \
+              $MULTI_NODE_REMOTE_DIR/config/client-properties/client-ssl.properties \
+              $MULTI_NODE_REMOTE_DIR/config/client-properties/admin.properties \
               ${node}:${REMOTE_DIR}/config/client-properties/
 
             # Copy certificate files
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/Multi-Node/config/multi-node-certs/*.p12 \
+              $MULTI_NODE_REMOTE_DIR/config/multi-node-certs/*.p12 \
               ${node}:${REMOTE_DIR}/config/certs/
 
             # Copy scripts
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/Multi-Node/scripts/* \
+              $MULTI_NODE_REMOTE_DIR/scripts/* \
               ${node}:${REMOTE_DIR}/scripts/
 
             # Set permissions
@@ -168,7 +170,7 @@ stage('Distribute Files to All Nodes') {
             }
 
             sh 'docker pull apache/kafka:4.0.0'
-            def clusterId = sh(script: "docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
+            def clusterId = sh(script: "docker run --rm $KAFKA_BASE_IMAGE /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
             echo "Generated Cluster ID: ${clusterId}"
 
             for (node in nodes) {
@@ -177,7 +179,7 @@ stage('Distribute Files to All Nodes') {
                   docker run --rm \
                     -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties \
                     -v $REMOTE_DIR/data:/var/lib/kafka/data \
-                    apache/kafka:4.0.0 \
+                    $KAFKA_BASE_IMAGE \
                     /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties
                 '
               """
@@ -195,19 +197,19 @@ stage('Distribute Files to All Nodes') {
               def nodes = [env.NODE1, env.NODE2, env.NODE3]
               for (node in nodes) {
                 sh """#!/bin/bash
-ssh -o StrictHostKeyChecking=no $node \\
-NEXUS_USER='$NEXUS_USER' NEXUS_PASS='$NEXUS_PASS' bash -s <<'EOF'
-set -e
-IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
-REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
-echo "IMAGE: \$IMAGE"
-echo "REGISTRY: \$REGISTRY"
-echo "Logging in..."
-echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
-cd $REMOTE_DIR
-docker-compose -f docker-compose.yml up -d
-EOF
-"""
+                  ssh -o StrictHostKeyChecking=no $node \\
+                    NEXUS_USER='$NEXUS_USER' NEXUS_PASS='$NEXUS_PASS' bash -s <<'EOF'
+                  set -e
+                    IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
+                    REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
+                      echo "IMAGE: \$IMAGE"
+                      echo "REGISTRY: \$REGISTRY"
+                      echo "Logging in..."
+                      echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
+                  cd $REMOTE_DIR
+                  docker-compose -f docker-compose.yml up -d
+                  EOF
+                """
               }
             }
           }
