@@ -347,10 +347,12 @@ EOF
       }
     }
 
-    stage('Deployment Summary') {
-      steps {
-      echo 'Multi-Node Kafka Cluster Deployed Successfully'
-      }
+stage('Deployment Summary') {
+  steps {
+    script {
+      echo '✅ Multi-Node Kafka Cluster Deployed Successfully'
     }
+  }
+}
   }
 }
