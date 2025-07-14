@@ -392,6 +392,38 @@ stage('Create Users, Topics & ACLs') {
   }
 }
 
+stage('Cleanup Docker Images') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        def nodes = [env.NODE1, env.NODE2, env.NODE3]
+
+        echo "🧹 Cleaning up Jenkins build images (on Jenkins)..."
+        sh '''
+          cd Kafka-cluster/Multi-Node/scripts &&
+          bash cleanup-jenkins-images.sh
+        '''
+
+        echo "🧹 Cleaning up old images in Nexus (retain 5)..."
+        sh '''
+          cd Kafka-cluster/Multi-Node/scripts &&
+          bash cleanup-nexus-images.sh
+        '''
+
+        echo "🧹 Cleaning up old images on Kafka Nodes (retain 3 each)..."
+        for (node in nodes) {
+          sh """
+            ssh -o StrictHostKeyChecking=no ${node} '
+              cd $REMOTE_DIR/scripts &&
+              bash cleanup-node-images.sh
+            '
+          """
+        }
+      }
+    }
+  }
+}
+
 
 stage('Deployment Summary') {
   steps {
