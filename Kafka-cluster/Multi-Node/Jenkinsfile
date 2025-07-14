@@ -19,7 +19,7 @@ pipeline {
     stage('Load .env Variables') {
       steps {
         script {
-          def envLines =readFile("${env.WORKSPACE}/.env").split('\n'))
+          def envLines = readFile("${env.WORKSPACE}/.env").split('\n'))
           for (line in envLines) {
             if (line && line.contains('=')) {
               def (key, value) = line.split('=', 2)
