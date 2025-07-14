@@ -16,16 +16,20 @@ pipeline {
           env.REMOTE_DIR = getValue("REMOTE_DIR")
           env.MULTI_NODE_REMOTE_DIR = getValue("MULTI_NODE_REMOTE_DIR")
           env.KAFKA_BASE_IMAGE = getValue("KAFKA_BASE_IMAGE")
+          env.KAFKA_RELEASE = getValue("KAFKA_RELEASE")
+          env.NEXUS_REPO = getValue("NEXUS_REPO")
 
           // Load broker IPs
           def broker1Ip = getValue("BROKER1_IP")
           def broker2Ip = getValue("BROKER2_IP")
           def broker3Ip = getValue("BROKER3_IP")
 
-          // Safety check
-          if (!env.REMOTE_DIR || !env.MULTI_NODE_REMOTE_DIR || !env.KAFKA_BASE_IMAGE || !broker1Ip || !broker2Ip || !broker3Ip) {
-            error "❌ One or more required variables are missing in the .env file!"
+          // Cross checking the values
+          if (!env.REMOTE_DIR || !env.MULTI_NODE_REMOTE_DIR || !env.KAFKA_BASE_IMAGE ||!broker1Ip || !broker2Ip || !broker3Ip || !env.KAFKA_RELEASE || !env.NEXUS_REPO)
+          {
+           error "One or more required variables are missing in the .env file!"
           }
+
 
           // Inject NODE variables
           env.NODE1 = "ec2-user@${broker1Ip}"
@@ -33,10 +37,12 @@ pipeline {
           env.NODE3 = "ec2-user@${broker3Ip}"
 
           echo """
-          ✅ Loaded .env configuration:
+          Loaded .env configuration:
           REMOTE_DIR = ${env.REMOTE_DIR}
           MULTI_NODE_REMOTE_DIR = ${env.MULTI_NODE_REMOTE_DIR}
           KAFKA_BASE_IMAGE = ${env.KAFKA_BASE_IMAGE}
+          KAFKA_RELEASE = ${env.KAFKA_RELEASE}
+          NEXUS_REPO = ${env.NEXUS_REPO}
           NODE1 = ${env.NODE1}
           NODE2 = ${env.NODE2}
           NODE3 = ${env.NODE3}
@@ -50,7 +56,7 @@ pipeline {
       steps {
         script {
           def timestamp = sh(script: "date +%Y%m%d%H%M", returnStdout: true).trim()
-          env.IMAGE_TAG = "npc-uae-kafka-${timestamp}:latest"
+          env.IMAGE_TAG = "npc-uae-kafka-${env.KAFKA_RELEASE}:${timestamp}"
         }
       }
     }
@@ -67,7 +73,7 @@ pipeline {
               error "NEXUS_HOST not defined in .env file!"
             }
 
-            env.IMAGE_FULL = "${nexusHost}/uae-kafka/${env.IMAGE_TAG}"
+            env.IMAGE_FULL = "${nexusHost}/${env.NEXUS_REPO}/${env.IMAGE_TAG}"
             echo "Using image: ${env.IMAGE_FULL}"
             writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
           }
@@ -260,7 +266,7 @@ stage('Verify Initial Cluster Health') {
         def success = false
 
         for (int i = 1; i <= maxRetries; i++) {
-          echo "🔁 Attempt $i: Checking cluster health..."
+          echo "Attempt $i: Checking cluster health..."
           def result = sh(
             script: """
               ssh -o StrictHostKeyChecking=no $NODE1 '
@@ -272,17 +278,17 @@ stage('Verify Initial Cluster Health') {
           )
 
           if (result == 0) {
-            echo "✅ Cluster is healthy."
+            echo "Cluster is healthy."
             success = true
             break
           } else {
-            echo "❌ Cluster not healthy. Retrying in ${sleepSeconds}s..."
+            echo "Cluster not healthy. Retrying in ${sleepSeconds}s..."
             sleep sleepSeconds
           }
         }
 
         if (!success) {
-          error "🛑 Cluster did not become healthy after ${maxRetries} attempts!"
+          error "Cluster did not become healthy after ${maxRetries} attempts!"
         }
       }
     }
@@ -340,7 +346,7 @@ stage('Re-verify Cluster Health Post-Restart') {
         def success = false
 
         for (int i = 1; i <= maxRetries; i++) {
-          echo "🔁 Attempt $i: Re-checking cluster health..."
+          echo "Attempt $i: Re-checking cluster health..."
           def result = sh(
             script: """
               ssh -o StrictHostKeyChecking=no $NODE1 '
@@ -352,17 +358,17 @@ stage('Re-verify Cluster Health Post-Restart') {
           )
 
           if (result == 0) {
-            echo "✅ Cluster is healthy after restart."
+            echo "Cluster is healthy after restart."
             success = true
             break
           } else {
-            echo "❌ Still unhealthy. Retrying in ${sleepSeconds}s..."
+            echo "Still unhealthy. Retrying in ${sleepSeconds}s..."
             sleep sleepSeconds
           }
         }
 
         if (!success) {
-          error "🛑 Cluster not healthy after restart!"
+          error "Cluster not healthy after restart!"
         }
       }
     }
@@ -374,7 +380,7 @@ stage('Create Users, Topics & ACLs') {
   steps {
     sshagent(credentials: ['ec2-ssh-key']) {
       script {
-        echo "⚙️ Creating Kafka users, topics, and applying ACLs..."
+        echo "Creating Kafka users, topics, and applying ACLs..."
         sh """
           ssh -o StrictHostKeyChecking=no $NODE1 '
             cd $REMOTE_DIR/scripts &&
