@@ -349,9 +349,9 @@ EOF
 
     stage('Deployment Summary') {
       steps {
-        echo """
+        echo '''
         Multi-Node Kafka Cluster Deployed Successfully
-        """
+        '''
       }
     }
   }
