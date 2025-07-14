@@ -250,8 +250,7 @@ EOF
             for (int i = 1; i <= maxRetries; i++) {
               echo "🔁 Attempt $i: Checking cluster health..."
               def result = sh(
-                script: "
-                ssh -o StrictHostKeyChecking=no ${env.NODE1} 'cd ${env.REMOTE_DIR}/scripts && bash verify-cluster-health.sh'",
+                script: "ssh -o StrictHostKeyChecking=no ${env.NODE1} 'cd ${env.REMOTE_DIR}/scripts && bash verify-cluster-health.sh'",
                 returnStatus: true
               )
 
