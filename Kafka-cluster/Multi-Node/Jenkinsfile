@@ -51,12 +51,6 @@ pipeline {
       }
     }
 
-    stage('Checkout Git Repo') {
-      steps {
-        git branch: "${env.GIT_BRANCH}", url: "${env.GIT_REPO_URL}"
-      }
-    }
-
     stage('Inject Image Tag into File') {
       steps {
         dir(env.MULTI_NODE_REMOTE_DIR) {
