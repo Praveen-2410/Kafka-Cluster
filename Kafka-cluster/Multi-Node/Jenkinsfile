@@ -287,19 +287,23 @@ EOF
           script {
             def nodes = [env.NODE1, env.NODE2, env.NODE3]
             for (node in nodes) {
-              sh """
-                ssh -o StrictHostKeyChecking=no $node '
-                  grep -q "^super.users=" ${env.REMOTE_DIR}/config/server.properties &&
-                  sed -i "s|^super.users=.*|super.users=User:admin;User:ANONYMOUS|" ${env.REMOTE_DIR}/config/server.properties ||
-                  echo "super.users=User:admin;User:ANONYMOUS" >> ${env.REMOTE_DIR}/config/server.properties
+          sh """
+            ssh -o StrictHostKeyChecking=no $node '
+              # Update or insert super.users
+              grep -q "^super.users=" $REMOTE_DIR/config/server.properties &&
+              sed -i "s|^super.users=.*|super.users=User:admin;User:ANONYMOUS|" $REMOTE_DIR/config/server.properties ||
+              echo "super.users=User:admin;User:ANONYMOUS" >> $REMOTE_DIR/config/server.properties
 
-                  grep -q "^allow.everyone.if.no.acl.found=" ${env.REMOTE_DIR}/config/server.properties &&
-                  sed -i "s|^allow.everyone.if.no.acl.found=.*|allow.everyone.if.no.acl.found=false|" ${env.REMOTE_DIR}/config/server.properties ||
-                  echo "allow.everyone.if.no.acl.found=false" >> ${env.REMOTE_DIR}/config/server.properties
+              # Update or insert allow.everyone.if.no.acl.found
+              grep -q "^allow.everyone.if.no.acl.found=" $REMOTE_DIR/config/server.properties &&
+              sed -i "s|^allow.everyone.if.no.acl.found=.*|allow.everyone.if.no.acl.found=false|" $REMOTE_DIR/config/server.properties ||
+              echo "allow.everyone.if.no.acl.found=false" >> $REMOTE_DIR/config/server.properties
 
-                  docker-compose -f ${env.REMOTE_DIR}/docker-compose.yml restart
-                '
-              """
+              # Restart brokers
+              docker-compose -f $REMOTE_DIR/docker-compose.yml restart
+            '
+          """
+
             }
           }
         }
