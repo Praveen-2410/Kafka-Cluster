@@ -19,12 +19,6 @@ pipeline {
       }
     }
 
-    stage('Checkout Git Repo') {
-      steps {
-        git branch: 'main', url: 'https://github.com/Praveen-2410/Kafka-Cluster.git'
-      }
-    }
-
     stage('Inject Image Tag into File') {
       steps {
         dir('Kafka-cluster/Multi-Node') {
