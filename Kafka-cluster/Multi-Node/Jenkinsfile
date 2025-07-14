@@ -53,9 +53,15 @@ pipeline {
 
     stage('Inject Image Tag into File') {
       steps {
-        dir(env.MULTI_NODE_REMOTE_DIR) {
-          script {
-            def envVars = readFile("${env.WORKSPACE}/.env").split('\n')
+        script {
+          def multiNodeDir = env.MULTI_NODE_REMOTE_DIR?.trim()
+
+          if (!multiNodeDir) {
+            error "MULTI_NODE_REMOTE_DIR is not set or is empty! Check your .env file."
+          }
+
+          dir(multiNodeDir) {
+            def envVars = readFile("${env.WORKSPACE}/Kafka-cluster/.env").split('\n')
             def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
             def nexusHost = nexusHostLine?.split('=')[-1]?.trim()
 
