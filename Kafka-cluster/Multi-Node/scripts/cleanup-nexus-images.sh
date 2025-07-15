@@ -4,7 +4,7 @@ set -e
 # Load env vars
 source ../.env
 
-IMAGE_PREFIX="multi-node-npc-uae-kafka-${KAFKA_RELEASE}"
+IMAGE_PREFIX="npc-uae-kafka-${KAFKA_RELEASE}"
 
 echo "Cleaning Nexus... Only keeping 5 images for: $IMAGE_PREFIX"
 
