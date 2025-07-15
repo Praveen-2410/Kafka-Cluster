@@ -1,31 +1,65 @@
 pipeline {
   agent any
 
-  environment {
-    REMOTE_HOST = "ec2-user@172.31.88.16"
-    REMOTE_DIR = "/home/ec2-user/kafka-cluster"
-  }
-
   stages {
+
+    stage('Load Environment Variables from .env') {
+      steps {
+        script {
+          def envLines = readFile("${env.WORKSPACE}/Kafka-cluster/.env").split('\n')
+
+          def getValue = { key ->
+            def line = envLines.find { it.startsWith("${key}=") }
+            return line ? line.split('=', 2)[1].trim() : null
+          }
+
+          // Load critical paths
+          env.REMOTE_DIR = getValue("REMOTE_DIR")
+          env.SINGLE_NODE_REMOTE_DIR = getValue("SINGLE_NODE_REMOTE_DIR")
+          env.KAFKA_BASE_IMAGE = getValue("KAFKA_BASE_IMAGE")
+          env.KAFKA_RELEASE = getValue("KAFKA_RELEASE")
+          env.NEXUS_REPO = getValue("NEXUS_REPO")
+
+          // Load broker IPs
+          def singleNodeIp = getValue("SINGLE_NODE_IP")
+
+
+          // Cross checking the values
+          if (!env.REMOTE_DIR || !env.SINGLE_NODE_REMOTE_DIR || !env.KAFKA_BASE_IMAGE ||!singleNodeIp || !env.KAFKA_RELEASE || !env.NEXUS_REPO)
+          {
+           error "One or more required variables are missing in the .env file!"
+          }
+
+
+          // Inject NODE variables
+          env.SINGLENODE = "ec2-user@${singleNodeIp}"
+
+          echo """
+          Loaded .env configuration:
+          REMOTE_DIR = ${env.REMOTE_DIR}
+          SINGLE_NODE_REMOTE_DIR = ${env.SINGLE_NODE_REMOTE_DIR}
+          KAFKA_BASE_IMAGE = ${env.KAFKA_BASE_IMAGE}
+          KAFKA_RELEASE = ${env.KAFKA_RELEASE}
+          NEXUS_REPO = ${env.NEXUS_REPO}
+          SINGLENODE = ${env.SINGLENODE}
+          """
+        }
+      }
+    }
+
 
     stage('Generate Dynamic Tag') {
       steps {
         script {
           def timestamp = sh(script: "date +%Y%m%d%H%M", returnStdout: true).trim()
-          env.IMAGE_TAG = "npc-uae-kafka-single-node-${timestamp}:latest"
+          env.IMAGE_TAG = "single-node-npc-uae-kafka-${env.KAFKA_RELEASE}:${timestamp}"
         }
-      }
-    }
-
-    stage('Checkout Git Repo') {
-      steps {
-        git branch: 'main', url: 'https://github.com/Praveen-2410/Kafka-Cluster.git'
       }
     }
 
     stage('Inject Image Tag into File') {
       steps {
-        dir('Kafka-cluster/Single-Node') {
+        dir("${env.SINGLE_NODE_REMOTE_DIR}") {
           script {
             def envVars = readFile("${env.WORKSPACE}/Kafka-cluster/.env").split('\n')
             def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
@@ -35,7 +69,7 @@ pipeline {
               error "NEXUS_HOST not defined in .env file!"
             }
 
-            env.IMAGE_FULL = "${nexusHost}/uae-kafka/${env.IMAGE_TAG}"
+            env.IMAGE_FULL = "${nexusHost}/${env.NEXUS_REPO}/${env.IMAGE_TAG}"
             echo "Using image: ${env.IMAGE_FULL}"
             writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
           }
@@ -53,7 +87,7 @@ pipeline {
 
     stage('Push Image to Nexus') {
       steps {
-        dir('Kafka-cluster/Single-Node') {
+        dir("${env.SINGLE_NODE_REMOTE_DIR}") {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
             sh '''
               IMAGE=$(cat image-tag.txt)
@@ -69,9 +103,10 @@ pipeline {
   steps {
     sshagent(credentials: ['ec2-ssh-key']) {
       sh """
-        ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
+        ssh -o StrictHostKeyChecking=no $SINGLENODE '
           BASE_DIR="$REMOTE_DIR"
           for i in 1 2 3; do
+            chown -R 1000:1000 "\$BASE_DIR"
             mkdir -p "\$BASE_DIR/broker-\$i/config"
             mkdir -p "\$BASE_DIR/broker-\$i/data"
           done
@@ -82,42 +117,42 @@ pipeline {
           chmod -R 755 \$BASE_DIR
         '
 
-        # Copy root-level files
+        # Copy files
         scp -o StrictHostKeyChecking=no \
           Kafka-cluster/.env \
-          Kafka-cluster/Single-Node/image-tag.txt \
-          $REMOTE_HOST:$REMOTE_DIR/
+          $SINGLE_NODE_REMOTE_DIR/image-tag.txt \
+          $SINGLENODE:$REMOTE_DIR/
 
         # Copy certs
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster/Single-Node/single-node-certs/broker.p12 \
-          Kafka-cluster/Single-Node/single-node-certs/ca-truststore.p12 \
-          $REMOTE_HOST:$REMOTE_DIR/shared/certs/
+          $SINGLE_NODE_REMOTE_DIR/single-node-certs/broker.p12 \
+          $SINGLE_NODE_REMOTE_DIR/single-node-certs/ca-truststore.p12 \
+          $SINGLENODE:$REMOTE_DIR/shared/certs/
 
         # Copy JAAS configs
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster/Single-Node/config/kafka_jaas.conf \
-          Kafka-cluster/Single-Node/config/kafka_admin_jaas.conf \
-          $REMOTE_HOST:$REMOTE_DIR/shared/jaas/
+          $SINGLE_NODE_REMOTE_DIR/config/kafka_jaas.conf \
+          $SINGLE_NODE_REMOTE_DIR/config/kafka_admin_jaas.conf \
+          $SINGLENODE:$REMOTE_DIR/shared/jaas/
 
         # Copy client-properties
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster/Single-Node/config/client-properties/client-ssl.properties \
-          Kafka-cluster/Single-Node/config/client-properties/admin.properties \
-          $REMOTE_HOST:$REMOTE_DIR/shared/client-properties/
+          $SINGLE_NODE_REMOTE_DIR/config/client-properties/client-ssl.properties \
+          $SINGLE_NODE_REMOTE_DIR/config/client-properties/admin.properties \
+          $SINGLENODE:$REMOTE_DIR/shared/client-properties/
 
         # Copy scripts
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster/Single-Node/scripts/* \
-          $REMOTE_HOST:$REMOTE_DIR/shared/scripts/
+          $SINGLE_NODE_REMOTE_DIR/scripts/* \
+          $SINGLENODE:$REMOTE_DIR/shared/scripts/
 
         # Copy server.properties.template
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster/Single-Node/config/server.properties.template \
-          Kafka-cluster/Single-Node/docker-compose.single-node.yml.template \
-          $REMOTE_HOST:$REMOTE_DIR/shared/
+          $SINGLE_NODE_REMOTE_DIR/config/server.properties.template \
+          $SINGLE_NODE_REMOTE_DIR/docker-compose.single-node.yml.template \
+          $SINGLENODE:$REMOTE_DIR/shared/
         
-        ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
+        ssh -o StrictHostKeyChecking=no $SINGLENODE '
           chmod 644 $REMOTE_DIR/shared/certs/*.p12
           chmod +x $REMOTE_DIR/shared/scripts/*
         '
@@ -129,7 +164,7 @@ pipeline {
     stage('Generate Broker Configs') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'cd $REMOTE_DIR && bash shared/scripts/generate-configs-single-node.sh'"
+          sh "ssh -o StrictHostKeyChecking=no $SINGLENODE 'cd $REMOTE_DIR && bash shared/scripts/generate-configs-single-node.sh'"
         }
       }
     }
@@ -141,7 +176,7 @@ pipeline {
             def clusterIds = []
             for (int i = 1; i <= 3; i++) {
               def id = sh(
-                script: "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'grep cluster.id $REMOTE_DIR/broker-${i}/data/meta.properties | cut -d= -f2 || true'",
+                script: "ssh -o StrictHostKeyChecking=no $SINGLENODE 'grep cluster.id $REMOTE_DIR/broker-${i}/data/meta.properties | cut -d= -f2 || true'",
                 returnStdout: true
               ).trim()
               clusterIds.add(id ?: '')
@@ -157,21 +192,21 @@ pipeline {
               echo "Mismatched cluster IDs found. Backing up and cleaning..."
               def timestamp = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
               for (int i = 1; i <= 3; i++) {
-                sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'mkdir -p $REMOTE_DIR/broker-${i}/data-backup-${timestamp} && cp -r $REMOTE_DIR/broker-${i}/data/* $REMOTE_DIR/broker-${i}/data-backup-${timestamp}/ && rm -rf $REMOTE_DIR/broker-${i}/data/*'"
+                sh "ssh -o StrictHostKeyChecking=no $SINGLENODE 'mkdir -p $REMOTE_DIR/broker-${i}/data-backup-${timestamp} && cp -r $REMOTE_DIR/broker-${i}/data/* $REMOTE_DIR/broker-${i}/data-backup-${timestamp}/ && rm -rf $REMOTE_DIR/broker-${i}/data/*'"
               }
             }
 
-            sh 'docker pull apache/kafka:4.0.0'
-            def clusterId = sh(script: "docker run --rm apache/kafka:4.0.0 /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
+            sh "docker pull ${env.KAFKA_BASE_IMAGE}"
+            def clusterId = sh(script: "docker run --rm $KAFKA_BASE_IMAGE /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
             echo "Generated Cluster ID: ${clusterId}"
 
             for (int i = 1; i <= 3; i++) {
               sh """
-                ssh -o StrictHostKeyChecking=no $REMOTE_HOST '
+                ssh -o StrictHostKeyChecking=no $SINGLENODE '
                   sudo docker run --rm \
                     -v $REMOTE_DIR/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties \
                     -v $REMOTE_DIR/broker-${i}/data:/var/lib/kafka/data \
-                    apache/kafka:4.0.0 \
+                    $KAFKA_BASE_IMAGE \
                     /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties
                 '
               """
@@ -192,7 +227,7 @@ stage('Start Kafka Containers') {
         )
       ]) {
         sh """#!/bin/bash
-ssh -o StrictHostKeyChecking=no $REMOTE_HOST \\
+ssh -o StrictHostKeyChecking=no $SINGLENODE \\
   NEXUS_USER='$NEXUS_USER' NEXUS_PASS='$NEXUS_PASS' bash -s <<'ENDSSH'
   set -e
   IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
@@ -213,21 +248,165 @@ ENDSSH
 }
 
 
-    stage('Verify Cluster & Create Admin User') {
-      steps {
-        sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'cd $REMOTE_DIR && bash shared/scripts/verify-cluster-and-setup-admin.sh'"
-        }
-      }
-    }
+stage('Verify Initial Cluster Health') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        def maxRetries = 6
+        def sleepSeconds = 10
+        def success = false
 
-    stage('Create Topics, Users & ACLs') {
-      steps {
-        sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no $REMOTE_HOST 'cd $REMOTE_DIR && bash shared/scripts/create_users_topic.sh'"
+        for (int i = 1; i <= maxRetries; i++) {
+          echo "Attempt $i: Checking cluster health..."
+          def result = sh(
+            script: """
+              ssh -o StrictHostKeyChecking=no $SINGLENODE '
+                cd $REMOTE_DIR/shared/scripts/ &&
+                bash verify-cluster-health.sh
+              '
+            """,
+            returnStatus: true
+          )
+
+          if (result == 0) {
+            echo "Cluster is healthy."
+            success = true
+            break
+          } else {
+            echo "Cluster not healthy. Retrying in ${sleepSeconds}s..."
+            sleep sleepSeconds
+          }
+        }
+
+        if (!success) {
+          error "Cluster did not become healthy after ${maxRetries} attempts!"
         }
       }
     }
+  }
+}
+
+stage('Setup Admin User') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      sh """
+        ssh -o StrictHostKeyChecking=no $SINGLENODE '
+          cd $REMOTE_DIR/shared/scripts/ &&
+          bash setup-admin-user.sh
+        '
+      """
+    }
+  }
+}
+
+stage('Update super.users and Restart Brokers') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      sh """
+        ssh -o StrictHostKeyChecking=no $SINGLENODE '
+          for i in 1 2 3; do
+            CONFIG_FILE="$REMOTE_DIR/broker-\$i/config/server.properties"
+
+            grep -q "^super.users=" \$CONFIG_FILE &&
+            sed -i "s|^super.users=.*|super.users=User:admin;User:ANONYMOUS|" \$CONFIG_FILE ||
+            echo "super.users=User:admin;User:ANONYMOUS" >> \$CONFIG_FILE
+
+            grep -q "^allow.everyone.if.no.acl.found=" \$CONFIG_FILE &&
+            sed -i "s|^allow.everyone.if.no.acl.found=.*|allow.everyone.if.no.acl.found=false|" \$CONFIG_FILE ||
+            echo "allow.everyone.if.no.acl.found=false" >> \$CONFIG_FILE
+          done
+
+          docker-compose -f \$REMOTE_DIR/docker-compose.yml restart
+        '
+      """
+    }
+  }
+}
+
+
+stage('Re-verify Cluster Health Post-Restart') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        def maxRetries = 6
+        def sleepSeconds = 10
+        def success = false
+
+        for (int i = 1; i <= maxRetries; i++) {
+          echo "Attempt $i: Re-checking cluster health..."
+          def result = sh(
+            script: """
+              ssh -o StrictHostKeyChecking=no $SINGLENODE '
+                cd $REMOTE_DIR/shared/scripts/ &&
+                bash verify-cluster-health.sh
+              '
+            """,
+            returnStatus: true
+          )
+
+          if (result == 0) {
+            echo "Cluster is healthy after restart."
+            success = true
+            break
+          } else {
+            echo "Still unhealthy. Retrying in ${sleepSeconds}s..."
+            sleep sleepSeconds
+          }
+        }
+
+        if (!success) {
+          error "Cluster not healthy after restart!"
+        }
+      }
+    }
+  }
+}
+
+
+stage('Create Users, Topics & ACLs') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        echo "Creating Kafka users, topics, and applying ACLs..."
+        sh """
+          ssh -o StrictHostKeyChecking=no $SINGLENODE '
+            cd $REMOTE_DIR/shared/scripts/ &&
+            bash create_users_topic.sh
+          '
+        """
+      }
+    }
+  }
+}
+
+stage('Cleanup Docker Images') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      script {
+        echo "Cleaning up Jenkins build images (on Jenkins)..."
+        sh '''
+          cd Kafka-cluster/Single-Node/scripts &&
+          bash cleanup-jenkins-images.sh
+        '''
+
+        echo "Cleaning up old images in Nexus (retain 5)..."
+        sh '''
+          cd Kafka-cluster/Single-Node/scripts &&
+          bash cleanup-nexus-images.sh
+        '''
+
+        echo "Cleaning up old images on Single Node (retain 3)..."
+        sh """
+          ssh -o StrictHostKeyChecking=no $SINGLENODE '
+            cd $REMOTE_DIR/shared/scripts &&
+            bash cleanup-node-images.sh
+          '
+        """
+      }
+    }
+  }
+}
+
 
 stage('Deployment Summary') {
   steps {
@@ -237,4 +416,13 @@ stage('Deployment Summary') {
   }
 }
   }
+
+
+  post {
+    success {
+      echo "Cleaning workspace after successful deployment..."
+      cleanWs()
+    }
+  }
 }
+

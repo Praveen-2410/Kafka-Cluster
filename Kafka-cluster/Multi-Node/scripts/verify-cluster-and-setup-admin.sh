@@ -1,4 +1,4 @@
-#!/bin/bash
+#etc#!/bin/bash
 
 # Purpose: Ensure Kafka container is up, check KRaft quorum, setup admin user and ACLs
 # Usage: Run on host where Broker-1 is running
@@ -9,8 +9,8 @@ set -e
 source .env
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
-BOOTSTRAP_INTERNAL="$SINGLE_NODE_IP:$BROKER1_INTERNAL_PORT"
-BOOTSTRAP_AUTH="$SINGLE_NODE_IP:$BROKER1_EXTERNAL_PORT"
+BOOTSTRAP_INTERNAL="$BROKER1_IP:9092"  # Used for user creation and quorum check
+BOOTSTRAP_AUTH="$BROKER1_IP:9094"      # Used for ACLs (requires SASL_SSL auth)
 ADMIN_USER="admin"
 ADMIN_PASSWORD="admin-password"
 CLIENT_CONFIG_PATH="/opt/kafka/config/client-properties/admin.properties"

@@ -209,7 +209,7 @@ stage('Distribute Files to All Nodes') {
               }
             }
 
-            sh 'docker pull apache/kafka:4.0.0'
+            sh "docker pull $KAFKA_BASE_IMAGE"
             def clusterId = sh(script: "docker run --rm $KAFKA_BASE_IMAGE /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
             echo "Generated Cluster ID: ${clusterId}"
 
@@ -433,4 +433,12 @@ stage('Deployment Summary') {
   }
 }
   }
+
+  post {
+    success {
+      echo "Cleaning workspace after successful deployment..."
+      cleanWs()
+    }
+  }
 }
+

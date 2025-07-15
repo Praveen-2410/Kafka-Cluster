@@ -16,7 +16,7 @@ ENV_PATH="$BASE_DIR/.env"  # root level .env
 
 # Load .env
 if [ ! -f "$ENV_PATH" ]; then
-  echo "❌ ERROR: .env file not found at $ENV_PATH"
+  echo "ERROR: .env file not found at $ENV_PATH"
   exit 1
 fi
 export $(grep -v '^#' "$ENV_PATH" | xargs)
@@ -25,7 +25,7 @@ export $(grep -v '^#' "$ENV_PATH" | xargs)
 if [ -f "$IMAGE_TAG_PATH" ]; then
   export IMAGE_FULL=$(cat "$IMAGE_TAG_PATH")
 else
-  echo "❌ ERROR: image-tag.txt not found!"
+  echo "ERROR: image-tag.txt not found!"
   exit 1
 fi
 
@@ -33,9 +33,9 @@ fi
 BROKER_IDS=($BROKER_ID_1 $BROKER_ID_2 $BROKER_ID_3)
 CONTAINER_NAMES=($SINGLE_NODE_CONTAINER_NAME_1 $SINGLE_NODE_CONTAINER_NAME_2 $SINGLE_NODE_CONTAINER_NAME_3)
 
-INTERNAL_PORTS=($BROKER1_INTERNAL_PORT $BROKER2_INTERNAL_PORT $BROKER3_INTERNAL_PORT)
-CONTROLLER_PORTS=($BROKER1_CONTROLLER_PORT $BROKER2_CONTROLLER_PORT $BROKER3_CONTROLLER_PORT)
-EXTERNAL_PORTS=($BROKER1_EXTERNAL_PORT $BROKER2_EXTERNAL_PORT $BROKER3_EXTERNAL_PORT)
+INTERNAL_PORTS=($SINGLE_NODE_BROKER1_INTERNAL_PORT $SINGLE_NODE_BROKER2_INTERNAL_PORT $SINGLE_NODE_BROKER3_INTERNAL_PORT)
+CONTROLLER_PORTS=($SINGLE_NODE_BROKER1_CONTROLLER_PORT $SINGLE_NODE_BROKER2_CONTROLLER_PORT $SINGLE_NODE_BROKER3_CONTROLLER_PORT)
+EXTERNAL_PORTS=($SINGLE_NODE_BROKER1_EXTERNAL_PORT $SINGLE_NODE_BROKER2_EXTERNAL_PORT $SINGLE_NODE_BROKER3_EXTERNAL_PORT)
 
 # Generate per-broker config
 for i in 0 1 2; do
@@ -48,7 +48,7 @@ for i in 0 1 2; do
   BROKER_CONFIG_DIR="$BASE_DIR/$BROKER_NAME/config"
   mkdir -p "$BROKER_CONFIG_DIR"
 
-  echo "⚙️ Generating server.properties for $BROKER_NAME..."
+  echo "Generating server.properties for $BROKER_NAME..."
 
   export NODE_ID=$BROKER_ID
   export INTERNAL_PORT
@@ -59,7 +59,7 @@ for i in 0 1 2; do
 done
 
 # Generate docker-compose.yml
-echo "⚙️ Generating docker-compose.yml from $COMPOSE_TEMPLATE_PATH..."
+echo "Generating docker-compose.yml from $COMPOSE_TEMPLATE_PATH..."
 envsubst < "$COMPOSE_TEMPLATE_PATH" > "$COMPOSE_OUTPUT_PATH"
 
-echo "✅ All broker configs and docker-compose.yml generated successfully."
+echo "All broker configs and docker-compose.yml generated successfully."
