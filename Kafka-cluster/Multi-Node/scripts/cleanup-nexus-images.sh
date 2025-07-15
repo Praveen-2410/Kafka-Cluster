@@ -11,7 +11,7 @@ fi
 
 source "$ENV_FILE"
 
-IMAGE_PREFIX="npc-uae-kafka-${KAFKA_RELEASE}"
+IMAGE_PREFIX="npc-uae-kafka"
 echo "Cleaning Nexus... Only keeping 5 images for: $IMAGE_PREFIX"
 
 curl -s -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
