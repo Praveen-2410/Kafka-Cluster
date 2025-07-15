@@ -6,7 +6,7 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-ENV_FILE="$PROJECT_ROOT/.env"
+ENV_PATH="$PROJECT_ROOT/.env"
 
 # Resolve base paths
 BASE_DIR=$(pwd)/..
