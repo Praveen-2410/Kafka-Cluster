@@ -2,24 +2,19 @@
 
 set -e
 
-# Set working directory to the location of this script
-cd "$(dirname "$0")"
+#!/bin/bash
+set -e
 
-# Resolve base paths
-BASE_DIR=$(pwd)
+# Load env variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../.env"
+
+BASE_DIR="$REMOTE_DIR"
 CONFIG_DIR="$BASE_DIR/config"
-TEMPLATE_PATH="$CONFIG_DIR/server.properties.template"
-COMPOSE_TEMPLATE_PATH="$BASE_DIR/docker-compose.single-node.yml.template"
-COMPOSE_OUTPUT_PATH="$BASE_DIR/docker-compose.yml"
-IMAGE_TAG_PATH="$BASE_DIR/image-tag.txt"
-ENV_PATH="$BASE_DIR/.env"
-
-# Load .env
-if [ ! -f "$ENV_PATH" ]; then
-  echo "ERROR: .env file not found at $ENV_PATH"
-  exit 1
-fi
-export $(grep -v '^#' "$ENV_PATH" | xargs)
+TEMPLATE_PATH="$REMOTE_DIR/shared/server.properties.template"
+COMPOSE_TEMPLATE_PATH="$REMOTE_DIR/shared/docker-compose.single-node.yml.template"
+COMPOSE_OUTPUT_PATH="$REMOTE_DIR/docker-compose.yml"
+IMAGE_TAG_PATH="$REMOTE_DIR/image-tag.txt"
 
 # Load image tag
 if [ -f "$IMAGE_TAG_PATH" ]; then
