@@ -43,12 +43,16 @@ for i in 0 1 2; do
   BROKER_CONFIG_DIR="$BASE_DIR/$BROKER_NAME/config"
   mkdir -p "$BROKER_CONFIG_DIR"
 
-  echo "Generating server.properties for $BROKER_NAME..."
+echo "Generating server.properties for $BROKER_NAME..."
 
-  export NODE_ID=$BROKER_ID
-  export INTERNAL_PORT
-  export CONTROLLER_PORT
-  export EXTERNAL_PORT
+export NODE_ID=$BROKER_ID
+export INTERNAL_PORT
+export CONTROLLER_PORT
+export EXTERNAL_PORT
+export SINGLE_NODE_IP
+export SINGLE_NODE_BROKER1_CONTROLLER_PORT
+export SINGLE_NODE_BROKER2_CONTROLLER_PORT
+export SINGLE_NODE_BROKER3_CONTROLLER_PORT
 
   envsubst < "$TEMPLATE_PATH" > "$BROKER_CONFIG_DIR/server.properties"
 done
