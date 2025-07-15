@@ -1,11 +1,17 @@
 #!/bin/bash
 set -e
 
-# Load env vars
-source ../.env
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/../../.env"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ .env file not found at $ENV_FILE"
+  exit 1
+fi
+
+source "$ENV_FILE"
 
 IMAGE_PREFIX="npc-uae-kafka-${KAFKA_RELEASE}"
-
 echo "Cleaning Nexus... Only keeping 5 images for: $IMAGE_PREFIX"
 
 curl -s -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
@@ -35,4 +41,4 @@ for tag in $TO_DELETE; do
 done
 
 rm -f tags.txt
-echo "Nexus cleanup done."
+echo "✅ Nexus cleanup done."
