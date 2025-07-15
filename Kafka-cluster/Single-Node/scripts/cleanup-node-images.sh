@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Load environment variables
-ENV_FILE="$(dirname "$0")/../.env"
+ENV_FILE="$(dirname "$0")/../../.env"
 if [ ! -f "$ENV_FILE" ]; then
   echo ".env file not found!"
   exit 1
