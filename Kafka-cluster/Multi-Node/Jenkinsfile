@@ -400,8 +400,8 @@ stage('Cleanup Docker Images') {
 
         echo "Cleaning up Jenkins build images (on Jenkins)..."
         sh '''
-         cd Kafka-cluster &&
-         bash Multi-Node/scripts/cleanup-jenkins-images.sh
+        cd Kafka-cluster/Multi-Node/scripts &&
+        bash cleanup-jenkins-images.sh
         '''
 
         echo "Cleaning up old images in Nexus (retain 5)..."
