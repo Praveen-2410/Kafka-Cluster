@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+# Load env
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/../../.env"
 
@@ -8,37 +9,40 @@ if [ ! -f "$ENV_FILE" ]; then
   echo "❌ .env file not found at $ENV_FILE"
   exit 1
 fi
-
 source "$ENV_FILE"
 
-IMAGE_PREFIX="npc-uae-kafka"
-echo "Cleaning Nexus... Only keeping 5 images for: $IMAGE_PREFIX"
+IMAGE_NAME="multi-node-npc-uae-kafka-${KAFKA_RELEASE}"
+REPO_PATH="uae-kafka/${IMAGE_NAME}"
 
+echo "📦 Cleaning Nexus repo '$REPO_PATH' - Only keeping latest 5 tags"
+
+# Get tags sorted descending
 curl -s -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
-  "http://${NEXUS_HOST}/v2/${NEXUS_REPO}/tags/list" | \
-  jq -r '.tags[]' | grep "$IMAGE_PREFIX" | sort -r > tags.txt
+  "http://${NEXUS_HOST}/v2/${REPO_PATH}/tags/list" | \
+  jq -r '.tags[]' | sort -r > tags.txt
 
 if [ ! -s tags.txt ]; then
-  echo "No matching images found."
+  echo "⚠️ No matching image tags found."
   exit 0
 fi
 
+# Delete all except the latest 5
 TO_DELETE=$(tail -n +6 tags.txt)
 
 for tag in $TO_DELETE; do
   DIGEST=$(curl -sI -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
     -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-    "http://${NEXUS_HOST}/v2/${NEXUS_REPO}/manifests/$tag" |
+    "http://${NEXUS_HOST}/v2/${REPO_PATH}/manifests/$tag" |
     grep Docker-Content-Digest | awk '{print $2}' | tr -d $'\r')
 
   if [ -n "$DIGEST" ]; then
-    echo "🗑️ Deleting $tag ($DIGEST)"
+    echo "🗑️ Deleting tag: $tag ($DIGEST)"
     curl -s -X DELETE -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
-      "http://${NEXUS_HOST}/v2/${NEXUS_REPO}/manifests/$DIGEST"
+      "http://${NEXUS_HOST}/v2/${REPO_PATH}/manifests/$DIGEST"
   else
-    echo "Failed to find digest for $tag"
+    echo "❌ Failed to find digest for $tag"
   fi
 done
 
 rm -f tags.txt
-echo "✅ Nexus cleanup done."
+echo "✅ Nexus cleanup complete."
