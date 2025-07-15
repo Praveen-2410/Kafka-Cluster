@@ -419,11 +419,11 @@ stage('Deployment Summary') {
   }
 
 
-  post {
-    success {
-      echo "Cleaning workspace after successful deployment..."
-      cleanWs()
-    }
+post {
+  success {
+    echo "Cleaning workspace after successful deployment..."
+    cleanWs(deleteDirs: true)
   }
+}
 }
 
