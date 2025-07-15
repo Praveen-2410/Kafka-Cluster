@@ -105,8 +105,6 @@ pipeline {
       sh """
         ssh -o StrictHostKeyChecking=no $SINGLENODE '
           BASE_DIR="$REMOTE_DIR"
-          mkdir -p "$BASE_DIR"
-          chown -R 1000:1000 "$BASE_DIR"
           for i in 1 2 3; do
             mkdir -p "\$BASE_DIR/broker-\$i/config"
             mkdir -p "\$BASE_DIR/broker-\$i/data"
@@ -115,6 +113,7 @@ pipeline {
           mkdir -p "\$BASE_DIR/shared/jaas"
           mkdir -p "\$BASE_DIR/shared/client-properties"
           mkdir -p "\$BASE_DIR/shared/scripts"
+          chown -R 1000:1000 \$BASE_DIR
           chmod -R 755 \$BASE_DIR
         '
 
