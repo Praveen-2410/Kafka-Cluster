@@ -105,8 +105,9 @@ pipeline {
       sh """
         ssh -o StrictHostKeyChecking=no $SINGLENODE '
           BASE_DIR="$REMOTE_DIR"
+          mkdir -p "$BASE_DIR"
+          chown -R 1000:1000 "$BASE_DIR"
           for i in 1 2 3; do
-            chown -R 1000:1000 "\$BASE_DIR"
             mkdir -p "\$BASE_DIR/broker-\$i/config"
             mkdir -p "\$BASE_DIR/broker-\$i/data"
           done
