@@ -56,7 +56,7 @@ pipeline {
       steps {
         script {
           def timestamp = sh(script: "date +%Y%m%d%H%M", returnStdout: true).trim()
-          env.IMAGE_TAG = "npc-uae-kafka-${env.KAFKA_RELEASE}:${timestamp}"
+          env.IMAGE_TAG = "multi-node-npc-uae-kafka-${env.KAFKA_RELEASE}:${timestamp}"
         }
       }
     }
