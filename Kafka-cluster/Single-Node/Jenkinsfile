@@ -125,8 +125,8 @@ pipeline {
 
         # Copy certs
         scp -o StrictHostKeyChecking=no \
-          $SINGLE_NODE_REMOTE_DIR/single-node-certs/broker.p12 \
-          $SINGLE_NODE_REMOTE_DIR/single-node-certs/ca-truststore.p12 \
+          $SINGLE_NODE_REMOTE_DIR/config/single-node-certs/broker.p12 \
+          $SINGLE_NODE_REMOTE_DIR/config/single-node-certs/ca-truststore.p12 \
           $SINGLENODE:$REMOTE_DIR/shared/certs/
 
         # Copy JAAS configs
