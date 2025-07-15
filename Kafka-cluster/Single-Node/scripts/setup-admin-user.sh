@@ -3,7 +3,7 @@
 set -e
 
 # Load env variables
-source ../.env
+source ../../.env
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
 BOOTSTRAP_INTERNAL="$SINGLE_NODE_IP:$SINGLE_NODE_BROKER1_INTERNAL_PORT"
