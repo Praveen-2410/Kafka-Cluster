@@ -3,7 +3,10 @@
 set -e
 
 # Set working directory to the location of this script
-cd "$(dirname "$0")"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+ENV_FILE="$PROJECT_ROOT/.env"
 
 # Resolve base paths
 BASE_DIR=$(pwd)/..
@@ -12,7 +15,6 @@ TEMPLATE_PATH="$CONFIG_DIR/server.properties.template"
 COMPOSE_TEMPLATE_PATH="$BASE_DIR/docker-compose.single-node.yml.template"
 COMPOSE_OUTPUT_PATH="$BASE_DIR/docker-compose.yml"
 IMAGE_TAG_PATH="$BASE_DIR/image-tag.txt"
-ENV_PATH="$BASE_DIR/.env"  # root level .env
 
 # Load .env
 if [ ! -f "$ENV_PATH" ]; then
