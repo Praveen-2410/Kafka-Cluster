@@ -316,7 +316,8 @@ stage('Update super.users and Restart Brokers') {
             echo "allow.everyone.if.no.acl.found=false" >> \$CONFIG_FILE
           done
 
-          docker-compose -f \$REMOTE_DIR/docker-compose.yml restart
+          # Restart brokers
+          docker-compose -f $REMOTE_DIR/docker-compose.yml restart
         '
       """
     }
