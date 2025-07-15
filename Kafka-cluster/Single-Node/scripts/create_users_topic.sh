@@ -5,7 +5,7 @@ set -e
 set -o pipefail
 
 # Load environment and entities
-source ../.env
+source ../../.env
 source kafka-entities.sh
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
