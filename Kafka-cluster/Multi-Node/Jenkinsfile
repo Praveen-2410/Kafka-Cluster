@@ -1,51 +1,51 @@
 pipeline {
   agent any
 
-  stages {
-    stage('Load Environment Variables from Jenkins Secret File') {
-      steps {
-       withCredentials([file(credentialsId: 'kafka-env', variable: 'SECURE_ENV')]) {
-        script {
-          def envLines = readFile(SECURE_ENV).split('\n')
+stage('Load Environment Variables from Jenkins Secret File') {
+  steps {
+    withCredentials([file(credentialsId: 'kafka-env', variable: 'SECURE_ENV')]) {
+      script {
+        // Save env file contents globally
+        env.SECRET_ENV_CONTENT = readFile(SECURE_ENV)
 
-            def getValue = { key ->
-              def line = envLines.find { it.startsWith("${key}=") }
-              return line ? line.split('=', 2)[1].trim() : null
-            }
+        def envLines = env.SECRET_ENV_CONTENT.split('\n')
 
-          // Load critical paths
-          env.REMOTE_DIR = getValue("REMOTE_DIR")
-          env.MULTI_NODE_REMOTE_DIR = getValue("MULTI_NODE_REMOTE_DIR")
-          env.KAFKA_BASE_IMAGE = getValue("KAFKA_BASE_IMAGE")
-          env.KAFKA_RELEASE = getValue("KAFKA_RELEASE")
-          env.NEXUS_REPO = getValue("NEXUS_REPO")
-          env.NEXUS_HOST = getValue("NEXUS_HOST")
-
-          // Load broker IPs
-          def broker1Ip = getValue("BROKER1_IP")
-          def broker2Ip = getValue("BROKER2_IP")
-          def broker3Ip = getValue("BROKER3_IP")
-
-          // Cross checking the values
-          if (!env.REMOTE_DIR || !env.MULTI_NODE_REMOTE_DIR || !env.KAFKA_BASE_IMAGE ||!broker1Ip || !broker2Ip || !broker3Ip || !env.KAFKA_RELEASE || !env.NEXUS_HOST || !env.NEXUS_REPO)
-          {
-           error "One or more required variables are missing in the .env file!"
-          }
-
-          // Inject NODE variables
-          env.NODE1 = "ec2-user@${broker1Ip}"
-          env.NODE2 = "ec2-user@${broker2Ip}"
-          env.NODE3 = "ec2-user@${broker3Ip}"
-
+        def getValue = { key ->
+          def line = envLines.find { it.startsWith("${key}=") }
+          return line ? line.split('=', 2)[1].trim() : null
         }
+
+        // Load critical paths
+        env.REMOTE_DIR = getValue("REMOTE_DIR")
+        env.MULTI_NODE_REMOTE_DIR = getValue("MULTI_NODE_REMOTE_DIR")
+        env.KAFKA_BASE_IMAGE = getValue("KAFKA_BASE_IMAGE")
+        env.KAFKA_RELEASE = getValue("KAFKA_RELEASE")
+        env.NEXUS_REPO = getValue("NEXUS_REPO")
+        env.NEXUS_HOST = getValue("NEXUS_HOST")
+
+        // Load broker IPs
+        def broker1Ip = getValue("BROKER1_IP")
+        def broker2Ip = getValue("BROKER2_IP")
+        def broker3Ip = getValue("BROKER3_IP")
+
+        // Validate values
+        if (!env.REMOTE_DIR || !env.MULTI_NODE_REMOTE_DIR || !env.KAFKA_BASE_IMAGE || !broker1Ip || !broker2Ip || !broker3Ip || !env.KAFKA_RELEASE || !env.NEXUS_HOST || !env.NEXUS_REPO) {
+          error "❌ One or more required variables are missing in the .env file!"
+        }
+
+        // Set node addresses
+        env.NODE1 = "ec2-user@${broker1Ip}"
+        env.NODE2 = "ec2-user@${broker2Ip}"
+        env.NODE3 = "ec2-user@${broker3Ip}"
       }
     }
   }
+}
 
 stage('Generate Remote Environment File') {
   steps {
     script {
-      def envLines = readFile(SECURE_ENV).split('\n')
+      def envLines = env.SECRET_ENV_CONTENT.split('\n')
       def getValue = { key ->
         def line = envLines.find { it.startsWith("${key}=") }
         return line ? line.split('=', 2)[1].trim() : null
