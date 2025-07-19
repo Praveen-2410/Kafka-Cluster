@@ -89,8 +89,14 @@ stage('Generate Remote Environment File') {
     stage('Generate Dynamic Tag') {
       steps {
         script {
-          def timestamp = sh(script: "date +%Y%m%d%H%M", returnStdout: true).trim()
-          env.IMAGE_TAG = "multi-node-npc-uae-kafka-${env.KAFKA_RELEASE}:${timestamp}"
+            def githash = sh(script: "git rev-parse --short=7 HEAD", returnStdout: true).trim()
+            def timestamp = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
+
+            // Define the image name prefix
+            def imagePrefix = "multi-node-npc-uae-kafka"
+
+           // Construct the tag
+           env.IMAGE_TAG = "${imagePrefix}-release-${env.KAFKA_RELEASE}-${githash}-${timestamp}"
         }
       }
     }
