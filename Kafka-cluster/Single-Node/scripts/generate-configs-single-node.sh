@@ -1,13 +1,18 @@
 #!/bin/bash
-
 set -e
 
-#!/bin/bash
-set -e
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Load env variables
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../../.env"
+ENV_FILE="$PROJECT_ROOT/remote-env.sh"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ ERROR: remote-env.sh file not found at $ENV_FILE"
+  exit 1
+fi
+
+echo "✅ Found remote-env.sh at: $ENV_FILE"
+source "$ENV_FILE"
 
 BASE_DIR="$REMOTE_DIR"
 CONFIG_DIR="$BASE_DIR/config"

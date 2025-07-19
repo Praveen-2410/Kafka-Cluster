@@ -13,7 +13,7 @@ fi
 
 source "$ENV_FILE"
 
-CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
+CONTAINER_NAME="$CONTAINER_NAME_1"
 BOOTSTRAP_INTERNAL="$BROKER1_IP:$INTERNAL_PORT"
 
 echo "🔍 Waiting for container '$CONTAINER_NAME' to be running..."

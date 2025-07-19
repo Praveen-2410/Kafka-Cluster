@@ -1,11 +1,19 @@
 #!/bin/bash
-
 set -e
 
-# Load env variables
-source ../../.env
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
+ENV_FILE="$PROJECT_ROOT/remote-env.sh"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ ERROR: remote-env.sh not found!"
+  exit 1
+fi
+
+source "$ENV_FILE"
+
+CONTAINER_NAME="$SINGLE_NODE_CONTAINER_NAME_1"
 BOOTSTRAP_INTERNAL="$SINGLE_NODE_IP:$SINGLE_NODE_BROKER1_INTERNAL_PORT"
 BOOTSTRAP_AUTH="$SINGLE_NODE_IP:$SINGLE_NODE_BROKER1_EXTERNAL_PORT"
 ADMIN_USER="admin"

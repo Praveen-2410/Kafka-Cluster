@@ -2,14 +2,13 @@
 
 # Purpose: Create Kafka users, topics, and ACLs
 set -e
-set -o pipefail
 
 # Load environment and entities
 source ../remote-env.sh
 source kafka-entities.sh
 
-CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
-BOOTSTRAP="${BROKER1_IP}:9094"
+CONTAINER_NAME="$CONTAINER_NAME_1"
+BOOTSTRAP="${BROKER1_IP}:${EXTERNAL_PORT}"
 CONFIG="/opt/kafka/config/client-properties/admin.properties"
 
 echo "CONTAINER_NAME: $CONTAINER_NAME"

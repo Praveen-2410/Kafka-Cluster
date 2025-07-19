@@ -1,14 +1,16 @@
 #!/bin/bash
 set -e
 
-# Load env
+# Get full workspace root path
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/../../.env"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+ENV_FILE="$WORKSPACE_ROOT/remote-env.sh"
 
 if [ ! -f "$ENV_FILE" ]; then
-  echo "❌ .env file not found at $ENV_FILE"
+  echo "❌ remote-env.sh not found at $ENV_FILE"
   exit 1
 fi
+
 source "$ENV_FILE"
 
 IMAGE_NAME="single-node-npc-uae-kafka-${KAFKA_RELEASE}"

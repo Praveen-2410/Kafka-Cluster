@@ -3,49 +3,95 @@ pipeline {
 
   stages {
 
-    stage('Load Environment Variables from .env') {
-      steps {
-        script {
-          def envLines = readFile("${env.WORKSPACE}/Kafka-cluster/.env").split('\n')
+stage('Load Environment Variables from Jenkins Secret File') {
+  steps {
+    withCredentials([file(credentialsId: 'kafka-env', variable: 'SECURE_ENV')]) {
+      script {
 
-          def getValue = { key ->
-            def line = envLines.find { it.startsWith("${key}=") }
-            return line ? line.split('=', 2)[1].trim() : null
-          }
+        // Save env file contents globally
+        env.SECRET_ENV_CONTENT = readFile(SECURE_ENV)
 
-          // Load critical paths
-          env.REMOTE_DIR = getValue("REMOTE_DIR")
-          env.SINGLE_NODE_REMOTE_DIR = getValue("SINGLE_NODE_REMOTE_DIR")
-          env.KAFKA_BASE_IMAGE = getValue("KAFKA_BASE_IMAGE")
-          env.KAFKA_RELEASE = getValue("KAFKA_RELEASE")
-          env.NEXUS_REPO = getValue("NEXUS_REPO")
+        def envLines = env.SECRET_ENV_CONTENT.split('\n')
 
-          // Load broker IPs
-          def singleNodeIp = getValue("SINGLE_NODE_IP")
-
-
-          // Cross checking the values
-          if (!env.REMOTE_DIR || !env.SINGLE_NODE_REMOTE_DIR || !env.KAFKA_BASE_IMAGE ||!singleNodeIp || !env.KAFKA_RELEASE || !env.NEXUS_REPO)
-          {
-           error "One or more required variables are missing in the .env file!"
-          }
-
-
-          // Inject NODE variables
-          env.SINGLENODE = "ec2-user@${singleNodeIp}"
-
-          echo """
-          Loaded .env configuration:
-          REMOTE_DIR = ${env.REMOTE_DIR}
-          SINGLE_NODE_REMOTE_DIR = ${env.SINGLE_NODE_REMOTE_DIR}
-          KAFKA_BASE_IMAGE = ${env.KAFKA_BASE_IMAGE}
-          KAFKA_RELEASE = ${env.KAFKA_RELEASE}
-          NEXUS_REPO = ${env.NEXUS_REPO}
-          SINGLENODE = ${env.SINGLENODE}
-          """
+        def getValue = { key ->
+          def line = envLines.find { it.startsWith("${key}=") }
+          return line ? line.split('=', 2)[1].trim() : null
         }
+
+        // Load critical paths
+        env.REMOTE_DIR = getValue("REMOTE_DIR")
+        env.SINGLE_NODE_REMOTE_DIR = getValue("SINGLE_NODE_REMOTE_DIR")
+        env.KAFKA_BASE_IMAGE = getValue("KAFKA_BASE_IMAGE")
+        env.KAFKA_RELEASE = getValue("KAFKA_RELEASE")
+        env.NEXUS_REPO = getValue("NEXUS_REPO")
+        env.NEXUS_HOST = getValue("NEXUS_HOST")
+
+        // Load broker IPs
+        def singleNodeIp = getValue("SINGLE_NODE_IP")
+
+
+        // Cross checking the values
+        if (!env.REMOTE_DIR || !env.SINGLE_NODE_REMOTE_DIR || !env.KAFKA_BASE_IMAGE ||!singleNodeIp || !env.KAFKA_RELEASE || !env.NEXUS_REPO)
+        {
+           error "One or more required variables are missing in the .env file!"
+        }
+
+
+        // Inject NODE variables
+        env.SINGLENODE = "ec2-user@${singleNodeIp}"
       }
     }
+  }
+}
+
+stage('Generate Remote Environment File') {
+  steps {
+    script {
+      def envLines = env.SECRET_ENV_CONTENT.split('\n')
+      def getValue = { key ->
+        def line = envLines.find { it.startsWith("${key}=") }
+        return line ? line.split('=', 2)[1].trim() : null
+      }
+
+      def remoteEnv = """
+        export REMOTE_DIR="${getValue('REMOTE_DIR')}"
+        export KAFKA_BASE_IMAGE="${getValue('KAFKA_BASE_IMAGE')}"
+        export KAFKA_RELEASE="${getValue('KAFKA_RELEASE')}"
+        export NEXUS_HOST="${getValue('NEXUS_HOST')}"
+        export NEXUS_REPO="${getValue('NEXUS_REPO')}"
+
+        export SINGLE_NODE_IP=${getValue('SINGLE_NODE_IP')}
+
+        # Broker 1 (on single-node)
+        export SINGLE_NODE_BROKER1_INTERNAL_PORT=${getValue('SINGLE_NODE_BROKER1_INTERNAL_PORT')}
+        export SINGLE_NODE_BROKER1_CONTROLLER_PORT=${getValue('SINGLE_NODE_BROKER1_CONTROLLER_PORT')}
+        export SINGLE_NODE_BROKER1_EXTERNAL_PORT=${getValue('SINGLE_NODE_BROKER1_EXTERNAL_PORT')}
+
+        # Broker 3 (on single-node)
+        export SINGLE_NODE_BROKER2_INTERNAL_PORT=${getValue('SINGLE_NODE_BROKER2_INTERNAL_PORT')}
+        export SINGLE_NODE_BROKER2_CONTROLLER_PORT=${getValue('SINGLE_NODE_BROKER2_CONTROLLER_PORT')}
+        export SINGLE_NODE_BROKER2_EXTERNAL_PORT=${getValue('SINGLE_NODE_BROKER2_EXTERNAL_PORT')}
+
+        # Broker 3 (on single-node)
+        export SINGLE_NODE_BROKER3_INTERNAL_PORT=${getValue('SINGLE_NODE_BROKER3_INTERNAL_PORT')}
+        export SINGLE_NODE_BROKER3_CONTROLLER_PORT=${getValue('SINGLE_NODE_BROKER3_CONTROLLER_PORT')}
+        export SINGLE_NODE_BROKER3_EXTERNAL_PORT=${getValue('SINGLE_NODE_BROKER3_EXTERNAL_PORT')}
+
+        export BROKER_ID_1=${getValue('BROKER_ID_1')}
+        export BROKER_ID_2=${getValue('BROKER_ID_2')}
+        export BROKER_ID_3=${getValue('BROKER_ID_3')}
+
+        export SINGLE_NODE_CONTAINER_NAME_1=${getValue('CONTAINER_NAME_1')}
+        export SINGLE_NODE_CONTAINER_NAME_2=${getValue('CONTAINER_NAME_2')}
+        export SINGLE_NODE_CONTAINER_NAME_3=${getValue('CONTAINER_NAME_3')}
+
+      """.stripIndent()
+
+      writeFile file: 'remote-env.sh', text: remoteEnv
+      sh 'chmod +x remote-env.sh'
+    }
+  }
+}
 
 
     stage('Generate Dynamic Tag') {
@@ -61,15 +107,7 @@ pipeline {
       steps {
         dir("${env.SINGLE_NODE_REMOTE_DIR}") {
           script {
-            def envVars = readFile("${env.WORKSPACE}/Kafka-cluster/.env").split('\n')
-            def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
-            def nexusHost = nexusHostLine?.split('=')[-1]?.trim()
-
-            if (!nexusHost) {
-              error "NEXUS_HOST not defined in .env file!"
-            }
-
-            env.IMAGE_FULL = "${nexusHost}/${env.NEXUS_REPO}/${env.IMAGE_TAG}"
+            env.IMAGE_FULL = "${env.NEXUS_HOST}/${env.NEXUS_REPO}/${env.IMAGE_TAG}"
             echo "Using image: ${env.IMAGE_FULL}"
             writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
           }
@@ -119,7 +157,7 @@ pipeline {
 
         # Copy files
         scp -o StrictHostKeyChecking=no \
-          Kafka-cluster/.env \
+          remote-env.sh \
           $SINGLE_NODE_REMOTE_DIR/image-tag.txt \
           $SINGLENODE:$REMOTE_DIR/
 
