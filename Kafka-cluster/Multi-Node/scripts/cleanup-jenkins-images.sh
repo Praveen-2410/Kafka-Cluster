@@ -1,11 +1,8 @@
 #!/bin/bash
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-ROOT_DIR="$(dirname "$PROJECT_ROOT")"
-
-ENV_FILE="$ROOT_DIR/remote-env.sh"
+WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ENV_FILE="$WORKSPACE_ROOT/remote-env.sh"
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "❌ remote-env.sh not found at $ENV_FILE"
