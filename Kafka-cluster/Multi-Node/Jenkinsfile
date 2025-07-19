@@ -2,15 +2,16 @@ pipeline {
   agent any
 
   stages {
-    stage('Load Environment Variables from .env') {
+    stage('Load Environment Variables from Jenkins Secret File') {
       steps {
+       withCredentials([file(credentialsId: 'kafka-env', variable: 'SECURE_ENV')]) {
         script {
-          def envLines = readFile("${env.WORKSPACE}/Kafka-cluster/.env").split('\n')
+          def envLines = readFile(SECURE_ENV).split('\n')
 
-          def getValue = { key ->
-            def line = envLines.find { it.startsWith("${key}=") }
-            return line ? line.split('=', 2)[1].trim() : null
-          }
+            def getValue = { key ->
+              def line = envLines.find { it.startsWith("${key}=") }
+              return line ? line.split('=', 2)[1].trim() : null
+            }
 
           // Load critical paths
           env.REMOTE_DIR = getValue("REMOTE_DIR")
@@ -18,6 +19,7 @@ pipeline {
           env.KAFKA_BASE_IMAGE = getValue("KAFKA_BASE_IMAGE")
           env.KAFKA_RELEASE = getValue("KAFKA_RELEASE")
           env.NEXUS_REPO = getValue("NEXUS_REPO")
+          env.NEXUS_HOST = getValue("NEXUS_HOST")
 
           // Load broker IPs
           def broker1Ip = getValue("BROKER1_IP")
@@ -25,31 +27,61 @@ pipeline {
           def broker3Ip = getValue("BROKER3_IP")
 
           // Cross checking the values
-          if (!env.REMOTE_DIR || !env.MULTI_NODE_REMOTE_DIR || !env.KAFKA_BASE_IMAGE ||!broker1Ip || !broker2Ip || !broker3Ip || !env.KAFKA_RELEASE || !env.NEXUS_REPO)
+          if (!env.REMOTE_DIR || !env.MULTI_NODE_REMOTE_DIR || !env.KAFKA_BASE_IMAGE ||!broker1Ip || !broker2Ip || !broker3Ip || !env.KAFKA_RELEASE || !env.NEXUS_HOST || !env.NEXUS_REPO)
           {
            error "One or more required variables are missing in the .env file!"
           }
-
 
           // Inject NODE variables
           env.NODE1 = "ec2-user@${broker1Ip}"
           env.NODE2 = "ec2-user@${broker2Ip}"
           env.NODE3 = "ec2-user@${broker3Ip}"
 
-          echo """
-          Loaded .env configuration:
-          REMOTE_DIR = ${env.REMOTE_DIR}
-          MULTI_NODE_REMOTE_DIR = ${env.MULTI_NODE_REMOTE_DIR}
-          KAFKA_BASE_IMAGE = ${env.KAFKA_BASE_IMAGE}
-          KAFKA_RELEASE = ${env.KAFKA_RELEASE}
-          NEXUS_REPO = ${env.NEXUS_REPO}
-          NODE1 = ${env.NODE1}
-          NODE2 = ${env.NODE2}
-          NODE3 = ${env.NODE3}
-          """
         }
       }
     }
+  }
+
+stage('Generate Remote Environment File') {
+  steps {
+    script {
+      def envLines = readFile(SECURE_ENV).split('\n')
+      def getValue = { key ->
+        def line = envLines.find { it.startsWith("${key}=") }
+        return line ? line.split('=', 2)[1].trim() : null
+      }
+
+      def remoteEnv = """
+        export REMOTE_DIR="${getValue('REMOTE_DIR')}"
+        export KAFKA_BASE_IMAGE="${getValue('KAFKA_BASE_IMAGE')}"
+        export KAFKA_RELEASE="${getValue('KAFKA_RELEASE')}"
+        export NEXUS_HOST="${getValue('NEXUS_HOST')}"
+        export NEXUS_REPO="${getValue('NEXUS_REPO')}"
+
+        export BROKER1_IP=${getValue('BROKER1_IP')}
+        export BROKER2_IP=${getValue('BROKER2_IP')}
+        export BROKER3_IP=${getValue('BROKER3_IP')}
+
+        export INTERNAL_PORT=${getValue('INTERNAL_PORT')}
+        export EXTERNAL_PORT=${getValue('EXTERNAL_PORT')}
+        export CONTROLLER_PORT=${getValue('CONTROLLER_PORT')}
+
+        export BROKER_ID_1=${getValue('BROKER_ID_1')}
+        export BROKER_ID_2=${getValue('BROKER_ID_2')}
+        export BROKER_ID_3=${getValue('BROKER_ID_3')}
+
+        export CONTAINER_NAME_1=${getValue('CONTAINER_NAME_1')}
+        export CONTAINER_NAME_2=${getValue('CONTAINER_NAME_2')}
+        export CONTAINER_NAME_3=${getValue('CONTAINER_NAME_3')}
+
+      """.stripIndent()
+
+      writeFile file: 'remote-env.sh', text: remoteEnv
+      sh 'chmod +x remote-env.sh'
+    }
+  }
+}
+
 
   
     stage('Generate Dynamic Tag') {
@@ -65,15 +97,7 @@ pipeline {
       steps {
         dir("$MULTI_NODE_REMOTE_DIR") {
           script {
-            def envVars = readFile("${env.WORKSPACE}/Kafka-cluster/.env").split('\n')
-            def nexusHostLine = envVars.find { it.startsWith('NEXUS_HOST=') }
-            def nexusHost = nexusHostLine?.split('=')[-1]?.trim()
-
-            if (!nexusHost) {
-              error "NEXUS_HOST not defined in .env file!"
-            }
-
-            env.IMAGE_FULL = "${nexusHost}/${env.NEXUS_REPO}/${env.IMAGE_TAG}"
+            env.IMAGE_FULL = "${env.NEXUS_HOST}/${env.NEXUS_REPO}/${env.IMAGE_TAG}"
             echo "Using image: ${env.IMAGE_FULL}"
             writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
           }
@@ -126,7 +150,7 @@ stage('Distribute Files to All Nodes') {
 
             # Copy core files
             scp -o StrictHostKeyChecking=no \
-              Kafka-cluster/.env \
+              remote-env.sh \
               $MULTI_NODE_REMOTE_DIR/image-tag.txt \
               $MULTI_NODE_REMOTE_DIR/docker-compose.yml.template \
               ${node}:${REMOTE_DIR}/
