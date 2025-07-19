@@ -157,7 +157,6 @@ stage('Generate Remote Environment File') {
 
         # Copy files
         scp -o StrictHostKeyChecking=no \
-          remote-env.sh \
           $SINGLE_NODE_REMOTE_DIR/image-tag.txt \
           $SINGLENODE:$REMOTE_DIR/
 
@@ -186,6 +185,7 @@ stage('Generate Remote Environment File') {
 
         # Copy server.properties.template
         scp -o StrictHostKeyChecking=no \
+          remote-env.sh \
           $SINGLE_NODE_REMOTE_DIR/config/server.properties.template \
           $SINGLE_NODE_REMOTE_DIR/docker-compose.single-node.yml.template \
           $SINGLENODE:$REMOTE_DIR/shared/
