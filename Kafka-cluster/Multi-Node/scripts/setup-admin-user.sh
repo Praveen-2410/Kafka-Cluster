@@ -1,9 +1,17 @@
 #!/bin/bash
-
 set -e
 
-# Load env variables
-source ../.env
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+ENV_FILE="$PROJECT_ROOT/remote-env.sh"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ ERROR: remote-env.sh not found!"
+  exit 1
+fi
+
+source "$ENV_FILE"
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
 BOOTSTRAP_INTERNAL="$BROKER1_IP:$INTERNAL_PORT"
@@ -33,7 +41,6 @@ fi
 
 echo "Verifying admin ACLs..."
 
-# Expected ACLs (must match the reconstructed format exactly)
 EXPECTED_ACLS=$(cat <<EOF
 (principal=User:admin, host=*, operation=ALL, permissionType=ALLOW, resourceType=GROUP, name=*, patternType=PREFIXED)
 (principal=User:admin, host=*, operation=ALL, permissionType=ALLOW, resourceType=TOPIC, name=*, patternType=PREFIXED)
@@ -41,14 +48,12 @@ EXPECTED_ACLS=$(cat <<EOF
 EOF
 )
 
-# Get actual ACLs
 CURRENT_ACLS=$(sudo docker exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-acls.sh \
   --bootstrap-server "$BOOTSTRAP_AUTH" \
   --command-config "$CLIENT_CONFIG_PATH" \
   --list --principal User:"$ADMIN_USER" 2>/dev/null)
 
-# Normalize ACL output to unified format: (principal...), resourceType=..., etc.
 normalize_acls() {
   local combined=""
   local current_resource=""
@@ -66,7 +71,6 @@ normalize_acls() {
 NORMALIZED_EXPECTED=$(normalize_acls "$EXPECTED_ACLS")
 NORMALIZED_CURRENT=$(normalize_acls "$CURRENT_ACLS")
 
-# Compare
 if diff <(echo "$NORMALIZED_EXPECTED") <(echo "$NORMALIZED_CURRENT") >/dev/null; then
   echo "Admin user already has expected ACLs. Skipping ACL update."
 else

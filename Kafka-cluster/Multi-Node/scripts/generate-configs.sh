@@ -4,14 +4,14 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-ENV_FILE="$PROJECT_ROOT/.env"
+ENV_FILE="$PROJECT_ROOT/remote-env.sh"
 
 if [ ! -f "$ENV_FILE" ]; then
-  echo "❌ ERROR: .env file not found at $ENV_FILE"
+  echo "❌ ERROR: remote-env.sh file not found at $ENV_FILE"
   exit 1
 fi
 
-echo "✅ Found .env at: $ENV_FILE"
+echo "✅ Found remote-env.sh at: $ENV_FILE"
 source "$ENV_FILE"
 
 # Load image tag
@@ -25,15 +25,15 @@ fi
 # Determine broker number (1/2/3) passed via argument
 BROKER_NUM=${1:-1}
 
-# Resolve broker-specific details from .env
+# Resolve broker-specific details
 NODE_ID=$(eval echo \$BROKER_ID_${BROKER_NUM})
 BROKER_IP=$(eval echo \$BROKER${BROKER_NUM}_IP)
 CONTAINER_NAME=$(eval echo \$CONTAINER_NAME_${BROKER_NUM})
 
 # Ensure required ports exist
-: "${INTERNAL_PORT:?INTERNAL_PORT not set in .env}"
-: "${EXTERNAL_PORT:?EXTERNAL_PORT not set in .env}"
-: "${CONTROLLER_PORT:?CONTROLLER_PORT not set in .env}"
+: "${INTERNAL_PORT:?INTERNAL_PORT not set}"
+: "${EXTERNAL_PORT:?EXTERNAL_PORT not set}"
+: "${CONTROLLER_PORT:?CONTROLLER_PORT not set}"
 
 # Export required for envsubst
 export NODE_ID BROKER_IP CONTAINER_NAME IMAGE_FULL NEXUS_HOST \

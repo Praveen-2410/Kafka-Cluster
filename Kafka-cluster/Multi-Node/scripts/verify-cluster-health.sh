@@ -1,9 +1,17 @@
 #!/bin/bash
-
-# Load environment variables
-source ../.env
-
 set -e
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+ENV_FILE="$PROJECT_ROOT/remote-env.sh"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ ERROR: remote-env.sh not found!"
+  exit 1
+fi
+
+source "$ENV_FILE"
 
 CONTAINER_NAME=${CONTAINER_NAME_1:-kafka-broker-1}
 BOOTSTRAP_INTERNAL="$BROKER1_IP:$INTERNAL_PORT"
@@ -22,7 +30,6 @@ for attempt in {1..12}; do
   fi
 done
 
-# Final check
 if [[ "$STATUS" != "true" ]]; then
   echo "❌ ERROR: Container $CONTAINER_NAME is not running after timeout."
   exit 1
@@ -30,7 +37,6 @@ fi
 
 echo "🔍 Verifying KRaft quorum status inside $CONTAINER_NAME..."
 
-# Retry quorum check
 QUORUM_READY=0
 for attempt in {1..5}; do
   set +e
