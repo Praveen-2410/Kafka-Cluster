@@ -7,8 +7,10 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-source <(grep -E '^(KAFKA_RELEASE|NEXUS_REPO)=' "$ENV_FILE")
+# ✅ Load all exported variables (this will work)
+source "$ENV_FILE"
 
+# Now verify if needed vars exist
 if [ -z "$KAFKA_RELEASE" ] || [ -z "$NEXUS_REPO" ]; then
   echo "❌ Missing KAFKA_RELEASE or NEXUS_REPO in remote-env.sh"
   exit 1
@@ -27,4 +29,4 @@ for img in $IMAGES_TO_DELETE; do
   docker rmi -f "$img" || echo "Failed to delete $img"
 done
 
-echo "Node image cleanup complete. Retained latest 3."
+echo "✅ Node image cleanup complete. Retained latest 3."
