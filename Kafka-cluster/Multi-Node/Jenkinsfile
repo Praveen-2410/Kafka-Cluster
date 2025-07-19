@@ -1,6 +1,8 @@
 pipeline {
   agent any
 
+stages {
+
 stage('Load Environment Variables from Jenkins Secret File') {
   steps {
     withCredentials([file(credentialsId: 'kafka-env', variable: 'SECURE_ENV')]) {
