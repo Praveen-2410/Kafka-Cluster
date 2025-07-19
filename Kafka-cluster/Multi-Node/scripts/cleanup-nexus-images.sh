@@ -3,7 +3,7 @@ set -e
 
 # Get full workspace root path
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 ENV_FILE="$WORKSPACE_ROOT/remote-env.sh"
 
 if [ ! -f "$ENV_FILE" ]; then
