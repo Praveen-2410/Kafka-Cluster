@@ -250,7 +250,7 @@ stage('Distribute Files to All Nodes') {
                 ssh -o StrictHostKeyChecking=no $node '
                   podman run --rm \
                     -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties:Z \
-                    -v $REMOTE_DIR/data:/var/lib/kafka/data \
+                    -v $REMOTE_DIR/data:/var/lib/kafka/data:Z \
                     $KAFKA_BASE_IMAGE \
                     /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties
                 '
