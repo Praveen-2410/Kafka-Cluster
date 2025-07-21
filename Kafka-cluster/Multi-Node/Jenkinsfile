@@ -248,7 +248,7 @@ stage('Distribute Files to All Nodes') {
             for (node in nodes) {
               sh """
                 ssh -o StrictHostKeyChecking=no $node '
-                  podman run --rm \
+                  podman run --rm --user=0 \
                     -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties:Z \
                     -v $REMOTE_DIR/data:/var/lib/kafka/data:Z \
                     $KAFKA_BASE_IMAGE \
