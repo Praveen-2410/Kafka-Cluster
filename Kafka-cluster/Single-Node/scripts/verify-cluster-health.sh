@@ -20,7 +20,7 @@ echo "🔍 Waiting for container '$CONTAINER_NAME' to be running..."
 
 # Wait for container to start
 for attempt in {1..12}; do
-  STATUS=$(sudo docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null || echo "false")
+  STATUS=$(sudo podman inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null || echo "false")
   if [[ "$STATUS" == "true" ]]; then
     echo "✅ Container $CONTAINER_NAME is running."
     break
@@ -42,7 +42,7 @@ echo "🔍 Verifying KRaft quorum status inside $CONTAINER_NAME..."
 QUORUM_READY=0
 for attempt in {1..5}; do
   set +e
-  sudo docker exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-metadata-quorum.sh \
+  sudo podman exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-metadata-quorum.sh \
     --bootstrap-server "$BOOTSTRAP_INTERNAL" describe --status > /tmp/quorum-status.txt
   STATUS=$?
   set -e

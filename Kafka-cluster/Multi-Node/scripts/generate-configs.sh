@@ -43,7 +43,7 @@ export NODE_ID BROKER_IP CONTAINER_NAME IMAGE_FULL NEXUS_HOST \
 # Generate config/server.properties
 envsubst < config/server.properties.template > config/server.properties
 
-# Generate docker-compose.yml
-envsubst < docker-compose.yml.template > docker-compose.yml
+# Generate podman-compose.yml
+envsubst < podman-compose.yml.template > podman-compose.yml
 
 echo "✅ Config generated for broker-$BROKER_NUM at IP $BROKER_IP"

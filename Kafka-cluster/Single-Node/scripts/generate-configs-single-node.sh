@@ -17,8 +17,8 @@ source "$ENV_FILE"
 BASE_DIR="$REMOTE_DIR"
 CONFIG_DIR="$BASE_DIR/config"
 TEMPLATE_PATH="$REMOTE_DIR/shared/server.properties.template"
-COMPOSE_TEMPLATE_PATH="$REMOTE_DIR/shared/docker-compose.single-node.yml.template"
-COMPOSE_OUTPUT_PATH="$REMOTE_DIR/docker-compose.yml"
+COMPOSE_TEMPLATE_PATH="$REMOTE_DIR/shared/podman-compose.single-node.yml.template"
+COMPOSE_OUTPUT_PATH="$REMOTE_DIR/podman-compose.yml"
 IMAGE_TAG_PATH="$REMOTE_DIR/image-tag.txt"
 
 # Load image tag
@@ -70,8 +70,8 @@ export SINGLE_NODE_BROKER3_INTERNAL_PORT SINGLE_NODE_BROKER3_CONTROLLER_PORT SIN
   envsubst < "$TEMPLATE_PATH" > "$BROKER_CONFIG_DIR/server.properties"
 done
 
-# Generate docker-compose.yml
-echo "Generating docker-compose.yml from $COMPOSE_TEMPLATE_PATH..."
+# Generate podman-compose.yml
+echo "Generating podman-compose.yml from $COMPOSE_TEMPLATE_PATH..."
 envsubst < "$COMPOSE_TEMPLATE_PATH" > "$COMPOSE_OUTPUT_PATH"
 
-echo "All broker configs and docker-compose.yml generated successfully."
+echo "All broker configs and podman-compose.yml generated successfully."

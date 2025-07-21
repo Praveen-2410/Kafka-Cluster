@@ -22,7 +22,7 @@ sanitize_topic_name() {
 
 # ✅ Check if user exists
 user_exists() {
-  sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
+  sudo podman exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
     --bootstrap-server "$BOOTSTRAP" \
     --command-config "$CONFIG" \
     --describe --entity-type users --entity-name "$1" 2>/dev/null |
@@ -38,7 +38,7 @@ create_user() {
     echo "✅ User '$user' exists"
   else
     echo "➕ Creating user: $user"
-    sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
+    sudo podman exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
       --bootstrap-server "$BOOTSTRAP" \
       --command-config "$CONFIG" \
       --alter --add-config "SCRAM-SHA-512=[iterations=4096,password=$password]" \
@@ -50,7 +50,7 @@ topic_exists() {
   local topic
   topic=$(sanitize_topic_name "$1")
 
-  sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
+  sudo podman exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
     --bootstrap-server "$BOOTSTRAP" \
     --command-config "$CONFIG" \
     --describe --topic "$topic" >/dev/null 2>&1
@@ -69,7 +69,7 @@ create_topic() {
   fi
 
   echo "📦 Creating topic: $topic"
-  if sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
+  if sudo podman exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-topics.sh \
       --bootstrap-server "$BOOTSTRAP" \
       --command-config "$CONFIG" \
       --create --topic "$topic" \
@@ -88,7 +88,7 @@ acl_exists() {
   local user=$2
   local op=$3
 
-  sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
+  sudo podman exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
     --bootstrap-server "$BOOTSTRAP" \
     --command-config "$CONFIG" \
     --list --topic "$topic" 2>/dev/null |
@@ -105,7 +105,7 @@ grant_acl() {
     echo "✅ ACL '$op' for '$user' on '$topic' exists"
   else
     echo "🔐 Granting $op to '$user' on '$topic'"
-    sudo docker exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
+    sudo podman exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
       --bootstrap-server "$BOOTSTRAP" \
       --command-config "$CONFIG" \
       --add --allow-principal "User:$user" \

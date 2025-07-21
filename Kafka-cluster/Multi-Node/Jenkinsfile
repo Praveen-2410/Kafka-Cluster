@@ -114,10 +114,10 @@ stage('Generate Remote Environment File') {
       }
     }
 
-    stage('Build Docker Image') {
+    stage('Build conatiner Image') {
       steps {
         dir('Kafka-cluster') {
-          sh 'docker build -t $(cat Multi-Node/image-tag.txt) .'
+          sh 'buildah bud -t $(cat Multi-Node/image-tag.txt) .'
         }
       }
     }
@@ -128,8 +128,8 @@ stage('Generate Remote Environment File') {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
             sh '''
               IMAGE=$(cat image-tag.txt)
-              echo "$NEXUS_PASS" | docker login $(echo $IMAGE | cut -d/ -f1) -u "$NEXUS_USER" --password-stdin
-              docker push $IMAGE
+              echo "$NEXUS_PASS" | podman login $(echo $IMAGE | cut -d/ -f1) -u "$NEXUS_USER" --password-stdin
+              podman push $IMAGE
             '''
           }
         }
@@ -161,7 +161,7 @@ stage('Distribute Files to All Nodes') {
             scp -o StrictHostKeyChecking=no \
               remote-env.sh \
               $MULTI_NODE_REMOTE_DIR/image-tag.txt \
-              $MULTI_NODE_REMOTE_DIR/docker-compose.yml.template \
+              $MULTI_NODE_REMOTE_DIR/podman-compose.yml.template \
               ${node}:${REMOTE_DIR}/
 
             # Copy server properties
@@ -242,14 +242,13 @@ stage('Distribute Files to All Nodes') {
               }
             }
 
-            sh "docker pull $KAFKA_BASE_IMAGE"
-            def clusterId = sh(script: "docker run --rm $KAFKA_BASE_IMAGE /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
+            def clusterId = sh(script: "podman run --rm $KAFKA_BASE_IMAGE /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
             echo "Generated Cluster ID: ${clusterId}"
 
             for (node in nodes) {
               sh """
                 ssh -o StrictHostKeyChecking=no $node '
-                  docker run --rm \
+                  podman run --rm \
                     -v $REMOTE_DIR/config/server.properties:/opt/kafka/config/kraft/server.properties \
                     -v $REMOTE_DIR/data:/var/lib/kafka/data \
                     $KAFKA_BASE_IMAGE \
@@ -278,9 +277,9 @@ REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
 echo "IMAGE: \$IMAGE"
 echo "REGISTRY: \$REGISTRY"
 echo "Logging in..."
-echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
+echo "\$NEXUS_PASS" | podman login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
 cd $REMOTE_DIR
-docker-compose -f docker-compose.yml up -d
+podman-compose -f podman-compose.yml up -d
 EOF
 """
               }
@@ -361,7 +360,7 @@ stage('Update super.users and Restart Brokers') {
               echo "allow.everyone.if.no.acl.found=false" >> $REMOTE_DIR/config/server.properties
 
               # Restart brokers
-              docker-compose -f $REMOTE_DIR/docker-compose.yml restart
+              podman-compose -f $REMOTE_DIR/podman-compose.yml restart
             '
           """
         }
@@ -425,7 +424,7 @@ stage('Create Users, Topics & ACLs') {
   }
 }
 
-stage('Cleanup Docker Images') {
+stage('Cleanup container Images') {
   steps {
     sshagent(credentials: ['ec2-ssh-key']) {
       script {

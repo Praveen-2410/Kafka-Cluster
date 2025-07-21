@@ -33,9 +33,9 @@ TO_DELETE=$(tail -n +6 tags.txt)
 
 for tag in $TO_DELETE; do
   DIGEST=$(curl -sI -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
-    -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+    -H "Accept: application/vnd.podman.distribution.manifest.v2+json" \
     "http://${NEXUS_HOST}/v2/${REPO_PATH}/manifests/$tag" |
-    grep Docker-Content-Digest | awk '{print $2}' | tr -d $'\r')
+    grep podman-Content-Digest | awk '{print $2}' | tr -d $'\r')
 
   if [ -n "$DIGEST" ]; then
     echo "🗑️ Deleting tag: $tag ($DIGEST)"

@@ -122,10 +122,10 @@ stage('Generate Remote Environment File') {
       }
     }
 
-    stage('Build Docker Image') {
+    stage('Build container Image') {
       steps {
         dir('Kafka-cluster') {
-          sh 'docker build -t $(cat Single-Node/image-tag.txt) .'
+          sh 'buildah bud -t $(cat Single-Node/image-tag.txt) .'
         }
       }
     }
@@ -136,8 +136,8 @@ stage('Generate Remote Environment File') {
           withCredentials([usernamePassword(credentialsId: 'nexus-creds-alt', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
             sh '''
               IMAGE=$(cat image-tag.txt)
-              echo "$NEXUS_PASS" | docker login $(echo $IMAGE | cut -d/ -f1) -u "$NEXUS_USER" --password-stdin
-              docker push $IMAGE
+              echo "$NEXUS_PASS" | podman login $(echo $IMAGE | cut -d/ -f1) -u "$NEXUS_USER" --password-stdin
+              podman push $IMAGE
             '''
           }
         }
@@ -194,7 +194,7 @@ stage('Generate Remote Environment File') {
         scp -o StrictHostKeyChecking=no \
           remote-env.sh \
           $SINGLE_NODE_REMOTE_DIR/config/server.properties.template \
-          $SINGLE_NODE_REMOTE_DIR/docker-compose.single-node.yml.template \
+          $SINGLE_NODE_REMOTE_DIR/podman-compose.single-node.yml.template \
           $SINGLENODE:$REMOTE_DIR/shared/
         
         ssh -o StrictHostKeyChecking=no $SINGLENODE '
@@ -241,14 +241,14 @@ stage('Generate Remote Environment File') {
               }
             }
 
-            sh "docker pull ${env.KAFKA_BASE_IMAGE}"
-            def clusterId = sh(script: "docker run --rm $KAFKA_BASE_IMAGE /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
+            sh "podman pull ${env.KAFKA_BASE_IMAGE}"
+            def clusterId = sh(script: "podman run --rm $KAFKA_BASE_IMAGE /opt/kafka/bin/kafka-storage.sh random-uuid", returnStdout: true).trim()
             echo "Generated Cluster ID: ${clusterId}"
 
             for (int i = 1; i <= 3; i++) {
               sh """
                 ssh -o StrictHostKeyChecking=no $SINGLENODE '
-                  sudo docker run --rm \
+                  sudo podman run --rm \
                     -v $REMOTE_DIR/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties \
                     -v $REMOTE_DIR/broker-${i}/data:/var/lib/kafka/data \
                     $KAFKA_BASE_IMAGE \
@@ -281,10 +281,10 @@ ssh -o StrictHostKeyChecking=no $SINGLENODE \\
   echo "IMAGE: \$IMAGE"
   echo "REGISTRY: \$REGISTRY"
   echo "Logging in..."
-  echo "\$NEXUS_PASS" | docker login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
+  echo "\$NEXUS_PASS" | podman login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
 
   cd $REMOTE_DIR
-  docker-compose -f docker-compose.yml up -d
+  podman-compose -f podman-compose.yml up -d
 ENDSSH
 """
       }
@@ -362,7 +362,7 @@ stage('Update super.users and Restart Brokers') {
           done
 
           # Restart brokers
-          docker-compose -f $REMOTE_DIR/docker-compose.yml restart
+          podman-compose -f $REMOTE_DIR/podman-compose.yml restart
         '
       """
     }
@@ -425,7 +425,7 @@ stage('Create Users, Topics & ACLs') {
   }
 }
 
-stage('Cleanup Docker Images') {
+stage('Cleanup conatiner Images') {
   steps {
     sshagent(credentials: ['ec2-ssh-key']) {
       script {
