@@ -198,6 +198,9 @@ stage('Distribute Files to All Nodes') {
                 sudo chown -R 1000:1000 "\$BASE_DIR"
               fi
 
+              if [ -d "\$BASE_DIR" ]; then
+                sudo chown -R 1000:1000 "\$BASE_DIR/*"
+              fi
             '
           """
         }
