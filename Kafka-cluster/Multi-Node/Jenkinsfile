@@ -155,6 +155,7 @@ stage('Distribute Files to All Nodes') {
               mkdir -p "\$BASE_DIR/config/client-properties"
               mkdir -p "\$BASE_DIR/scripts"
               chmod -R 755 "\$BASE_DIR"
+              chmod -R 755 "\$BASE_DIR/data"
             '
 
             # Copy core files
@@ -274,6 +275,8 @@ NEXUS_USER='$NEXUS_USER' NEXUS_PASS='$NEXUS_PASS' bash -s <<'EOF'
 set -e
 IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
+echo "Fixing ownership to UID 1000..."
+sudo find $REMOTE_DIR \\( -type f -o -type d \\) -exec chown 1000:1000 {} +
 echo "IMAGE: \$IMAGE"
 echo "REGISTRY: \$REGISTRY"
 echo "Logging in..."
