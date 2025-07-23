@@ -194,6 +194,7 @@ stage('Distribute Files to All Nodes') {
 
             # Set permissions
             ssh -o StrictHostKeyChecking=no ${node} '
+              podman unshare chown -R 1000:1000 $REMOTE_DIR
               chmod 644 $REMOTE_DIR/config/certs/*.p12
               chmod +x $REMOTE_DIR/scripts/*.sh
             '
