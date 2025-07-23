@@ -4,7 +4,7 @@ services:
     image: ${IMAGE_FULL}
     container_name: $CONTAINER_NAME
     restart: always
-    user: "1000:1000"
+    userns_mode: keep-id
     ports:
       - "${INTERNAL_PORT}:${INTERNAL_PORT}"
       - "${CONTROLLER_PORT}:${CONTROLLER_PORT}"
@@ -15,12 +15,12 @@ services:
         soft: 100000
         hard: 100000
     volumes:
-      - ./data:/var/lib/kafka/data:Z
-      - ./config/certs:/opt/kafka/secrets:Z
-      - ./config/scripts:/opt/kafka/scripts:Z
-      - ./config/server.properties:/opt/kafka/config/kraft/server.properties:Z
-      - ./config/client-properties:/opt/kafka/config/client-properties:Z
-      - ./config/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf:Z
+      - ./data:/var/lib/kafka/data:U,Z
+      - ./config/certs:/opt/kafka/secrets:U,Z
+      - ./config/scripts:/opt/kafka/scripts:U,Z
+      - ./config/server.properties:/opt/kafka/config/kraft/server.properties:U,Z
+      - ./config/client-properties:/opt/kafka/config/client-properties:U,Z
+      - ./config/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf:U,Z
     environment:
       - KAFKA_OPTS=-Djava.security.auth.login.config=/opt/kafka/config/kafka_jaas.conf
       - KAFKA_HEAP_OPTS=-Xms1g -Xmx1g
