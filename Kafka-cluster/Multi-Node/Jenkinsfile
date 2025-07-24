@@ -146,6 +146,10 @@ stage('Distribute Files to All Nodes') {
             ssh -o StrictHostKeyChecking=no ${node} '
               BASE_DIR="${REMOTE_DIR}"
 
+              if [ -d "\$BASE_DIR" ]; then
+                sudo chown -R 1000:1000 "\$BASE_DIR"
+              fi
+
               mkdir -p "\$BASE_DIR/data"
               mkdir -p "\$BASE_DIR/config/certs"
               mkdir -p "\$BASE_DIR/config/client-properties"
@@ -193,14 +197,6 @@ stage('Distribute Files to All Nodes') {
               chmod 644 $REMOTE_DIR/config/certs/*.p12
               chmod +x $REMOTE_DIR/scripts/*.sh
 
-
-              if [ -d "\$BASE_DIR" ]; then
-                sudo chown -R 1000:1000 "\$BASE_DIR"
-              fi
-
-              if [ -d "\$BASE_DIR" ]; then
-                sudo chown -R 1000:1000 "\$BASE_DIR/*"
-              fi
             '
           """
         }
