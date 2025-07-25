@@ -155,8 +155,14 @@ stage('Distribute Files to All Nodes') {
               mkdir -p "\$BASE_DIR/config/client-properties"
               mkdir -p "\$BASE_DIR/scripts"
               chmod -R 755 "\$BASE_DIR"
-              chmod -R 755 "\$BASE_DIR/data"
-            '
+              chmod -R 755 "\$BASE_DIR/data"      
+
+          if command -v getenforce >/dev/null && [ "$(getenforce)" = "Enforcing" ]; then
+            sudo chcon -Rt container_file_t $REMOTE_DIR
+            sudo chcon -Rt container_file_t $REMOTE_DIR/data
+            sudo chcon -Rt container_file_t $REMOTE_DIR/config
+          fi
+         '
 
             # Copy core files
             scp -o StrictHostKeyChecking=no \
