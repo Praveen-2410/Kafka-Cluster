@@ -144,7 +144,7 @@ stage('Distribute Files to All Nodes') {
         for (node in nodes) {
           sh """
             ssh -o StrictHostKeyChecking=no ${node} '
-              BASE_DIR="${REMOTE_DIR}"
+              BASE_DIR="\${REMOTE_DIR}"
 
               if [ -d "\$BASE_DIR" ]; then
                 sudo chown -R 1000:1000 "\$BASE_DIR"
