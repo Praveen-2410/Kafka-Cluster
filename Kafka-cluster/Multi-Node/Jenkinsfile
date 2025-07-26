@@ -192,7 +192,6 @@ stage('Distribute Files to All Nodes') {
             ssh -o StrictHostKeyChecking=no ${node} '
               chmod 644 $REMOTE_DIR/config/certs/*.p12
               chmod +x $REMOTE_DIR/scripts/*.sh
-              sudo chown -R 101000:101000 "${REMOTE_DIR}"
             '
           """
         }
@@ -268,6 +267,7 @@ stage('Distribute Files to All Nodes') {
               for (node in nodes) {
                 sh """#!/bin/bash
 ssh -o StrictHostKeyChecking=no $node \\
+sudo chown -R 101000:101000 "${REMOTE_DIR}"
 NEXUS_USER='$NEXUS_USER' NEXUS_PASS='$NEXUS_PASS' bash -s <<'EOF'
 set -e
 IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
