@@ -267,15 +267,13 @@ stage('Distribute Files to All Nodes') {
               for (node in nodes) {
                 sh """#!/bin/bash
 ssh -o StrictHostKeyChecking=no $node \\
-sudo chown -R 101000:101000 "${REMOTE_DIR}"
 NEXUS_USER='$NEXUS_USER' NEXUS_PASS='$NEXUS_PASS' bash -s <<'EOF'
 set -e
 IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
 echo "IMAGE: \$IMAGE"
 echo "REGISTRY: \$REGISTRY"
-echo "Logging in..."
-echo "\$NEXUS_PASS" | podman login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
+sudo chown -R 101000:101000 "${REMOTE_DIR}"
 cd $REMOTE_DIR
 podman-compose -f podman-compose.yml up -d
 EOF
