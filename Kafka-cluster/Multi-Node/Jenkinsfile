@@ -204,9 +204,9 @@ stage('Distribute Files to All Nodes') {
     stage('Generate Configs (envsubst)') {
       steps {
         sshagent(credentials: ['ec2-ssh-key']) {
-          sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && sudo -u \#101000 bash scripts/generate-configs.sh 1'"
-          sh "ssh -o StrictHostKeyChecking=no $NODE2 'cd $REMOTE_DIR && sudo -u \#101000  bash scripts/generate-configs.sh 2'"
-          sh "ssh -o StrictHostKeyChecking=no $NODE3 'cd $REMOTE_DIR && sudo -u \#101000 bash scripts/generate-configs.sh 3'"
+          sh "ssh -o StrictHostKeyChecking=no $NODE1 'cd $REMOTE_DIR && sudo -u \\#101000 bash scripts/generate-configs.sh 1'"
+          sh "ssh -o StrictHostKeyChecking=no $NODE2 'cd $REMOTE_DIR && sudo -u \\#101000  bash scripts/generate-configs.sh 2'"
+          sh "ssh -o StrictHostKeyChecking=no $NODE3 'cd $REMOTE_DIR && sudo -u \\#101000 bash scripts/generate-configs.sh 3'"
         }
       }
     }
