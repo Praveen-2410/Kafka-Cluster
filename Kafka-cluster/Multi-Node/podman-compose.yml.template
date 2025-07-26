@@ -17,7 +17,7 @@ services:
     volumes:
       - ./data:/var/lib/kafka/data
       - ./config/certs:/opt/kafka/secrets
-      - ./config/scripts:/opt/kafka/scripts
+      - ./scripts:/opt/kafka/scripts
       - ./config/server.properties:/opt/kafka/config/kraft/server.properties
       - ./config/client-properties:/opt/kafka/config/client-properties
       - ./config/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf
