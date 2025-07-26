@@ -143,12 +143,13 @@ stage('Distribute Files to All Nodes') {
         def nodes = [env.NODE1, env.NODE2, env.NODE3]
         for (node in nodes) {
           sh """
-            ssh -o StrictHostKeyChecking=no ${node} '
+            ssh -o StrictHostKeyChecking=no ${node} "
               BASE_DIR="${REMOTE_DIR}"
 
-              if [ -d "\$BASE_DIR" ]; then
-                sudo chown -R 101000:101000 "\$BASE_DIR"
-              fi
+               echo 'Changing ownership of:' \$BASE_DIR
+               if [ -d \"\$BASE_DIR\" ]; then
+                  sudo chown -R 101000:101000 \"\$BASE_DIR\"
+               fi
 
               mkdir -p "\$BASE_DIR/data"
               mkdir -p "\$BASE_DIR/config/certs"
@@ -156,7 +157,7 @@ stage('Distribute Files to All Nodes') {
               mkdir -p "\$BASE_DIR/scripts"
               chmod -R 755 "\$BASE_DIR"
               chmod -R 755 "\$BASE_DIR/data"
-            '
+            "
 
             # Copy core files
             scp -o StrictHostKeyChecking=no \
@@ -193,10 +194,10 @@ stage('Distribute Files to All Nodes') {
               ${node}:${REMOTE_DIR}/scripts/
 
             # Set permissions
-            ssh -o StrictHostKeyChecking=no ${node} '
+            ssh -o StrictHostKeyChecking=no ${node} "
               chmod 644 $REMOTE_DIR/config/certs/*.p12
               chmod +x $REMOTE_DIR/scripts/*.sh
-            '
+            "
           """
         }
       }
