@@ -147,7 +147,7 @@ stage('Distribute Files to All Nodes') {
               BASE_DIR="${REMOTE_DIR}"
 
               if [ -d "\$BASE_DIR" ]; then
-                sudo chown -R 1000:1000 "\$BASE_DIR"
+                sudo chown -R 101000:101000 "\$BASE_DIR"
               fi
 
               mkdir -p "\$BASE_DIR/data"
