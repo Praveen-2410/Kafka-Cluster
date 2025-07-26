@@ -141,65 +141,64 @@ stage('Distribute Files to All Nodes') {
     sshagent(credentials: ['ec2-ssh-key']) {
       script {
         def nodes = [env.NODE1, env.NODE2, env.NODE3]
-for (node in nodes) {
-  sh """
-    ssh -o StrictHostKeyChecking=no ${node} 'bash -s' <<'ENDSSH'
-      BASE_DIR="\${REMOTE_DIR}"
+        for (node in nodes) {
+          sh """
+            ssh -o StrictHostKeyChecking=no ${node} '
+              BASE_DIR="${REMOTE_DIR}"
 
-      if [ -d "\$BASE_DIR" ]; then
-        sudo chown -R 1000:1000 "\$BASE_DIR"
-      fi
+              if [ -d "\$BASE_DIR" ]; then
+                sudo chown -R 1000:1000 "\$BASE_DIR"
+              fi
 
-      mkdir -p "\$BASE_DIR/data"
-      mkdir -p "\$BASE_DIR/config/certs"
-      mkdir -p "\$BASE_DIR/config/client-properties"
-      mkdir -p "\$BASE_DIR/scripts"
-      chmod -R 755 "\$BASE_DIR"
-      chmod -R 755 "\$BASE_DIR/data"
+              mkdir -p "\$BASE_DIR/data"
+              mkdir -p "\$BASE_DIR/config/certs"
+              mkdir -p "\$BASE_DIR/config/client-properties"
+              mkdir -p "\$BASE_DIR/scripts"
+              chmod -R 755 "\$BASE_DIR"
+              chmod -R 755 "\$BASE_DIR/data"
+            '
 
-      if command -v getenforce >/dev/null && [ "\$(getenforce)" = "Enforcing" ]; then
-        sudo chcon -Rt container_file_t "\$BASE_DIR"
-        sudo chcon -Rt container_file_t "\$BASE_DIR/data"
-        sudo chcon -Rt container_file_t "\$BASE_DIR/config"
-      fi
-    ENDSSH
-  """
+            # Copy core files
+            scp -o StrictHostKeyChecking=no \
+              remote-env.sh \
+              $MULTI_NODE_REMOTE_DIR/image-tag.txt \
+              $MULTI_NODE_REMOTE_DIR/podman-compose.yml.template \
+              ${node}:${REMOTE_DIR}/
 
-  sh """
-    scp -o StrictHostKeyChecking=no \
-      remote-env.sh \
-      $MULTI_NODE_REMOTE_DIR/image-tag.txt \
-      $MULTI_NODE_REMOTE_DIR/podman-compose.yml.template \
-      ${node}:${REMOTE_DIR}/
+            # Copy server properties
+            scp -o StrictHostKeyChecking=no \
+              $MULTI_NODE_REMOTE_DIR/config/server.properties.template \
+              ${node}:${REMOTE_DIR}/config/
 
-    scp -o StrictHostKeyChecking=no \
-      $MULTI_NODE_REMOTE_DIR/config/server.properties.template \
-      ${node}:${REMOTE_DIR}/config/
+            # Copy JAAS config files
+            scp -o StrictHostKeyChecking=no \
+              $MULTI_NODE_REMOTE_DIR/config/kafka_jaas.conf \
+              $MULTI_NODE_REMOTE_DIR/config/kafka_admin_jaas.conf \
+              ${node}:${REMOTE_DIR}/config/
 
-    scp -o StrictHostKeyChecking=no \
-      $MULTI_NODE_REMOTE_DIR/config/kafka_jaas.conf \
-      $MULTI_NODE_REMOTE_DIR/config/kafka_admin_jaas.conf \
-      ${node}:${REMOTE_DIR}/config/
+            # Copy client SSL and admin props
+            scp -o StrictHostKeyChecking=no \
+              $MULTI_NODE_REMOTE_DIR/config/client-properties/client-ssl.properties \
+              $MULTI_NODE_REMOTE_DIR/config/client-properties/admin.properties \
+              ${node}:${REMOTE_DIR}/config/client-properties/
 
-    scp -o StrictHostKeyChecking=no \
-      $MULTI_NODE_REMOTE_DIR/config/client-properties/client-ssl.properties \
-      $MULTI_NODE_REMOTE_DIR/config/client-properties/admin.properties \
-      ${node}:${REMOTE_DIR}/config/client-properties/
+            # Copy certificate files
+            scp -o StrictHostKeyChecking=no \
+              $MULTI_NODE_REMOTE_DIR/config/multi-node-certs/*.p12 \
+              ${node}:${REMOTE_DIR}/config/certs/
 
-    scp -o StrictHostKeyChecking=no \
-      $MULTI_NODE_REMOTE_DIR/config/multi-node-certs/*.p12 \
-      ${node}:${REMOTE_DIR}/config/certs/
+            # Copy scripts
+            scp -o StrictHostKeyChecking=no \
+              $MULTI_NODE_REMOTE_DIR/scripts/* \
+              ${node}:${REMOTE_DIR}/scripts/
 
-    scp -o StrictHostKeyChecking=no \
-      $MULTI_NODE_REMOTE_DIR/scripts/* \
-      ${node}:${REMOTE_DIR}/scripts/
-
-    ssh -o StrictHostKeyChecking=no ${node} '
-      chmod 644 $REMOTE_DIR/config/certs/*.p12
-      chmod +x $REMOTE_DIR/scripts/*.sh
-    '
-  """
-}
+            # Set permissions
+            ssh -o StrictHostKeyChecking=no ${node} '
+              chmod 644 $REMOTE_DIR/config/certs/*.p12
+              chmod +x $REMOTE_DIR/scripts/*.sh
+            '
+          """
+        }
       }
     }
   }
