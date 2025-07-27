@@ -15,12 +15,12 @@ services:
         soft: 100000
         hard: 100000
     volumes:
-      - ./data:/var/lib/kafka/data
-      - ./config/certs:/opt/kafka/secrets
-      - ./scripts:/opt/kafka/scripts
-      - ./config/server.properties:/opt/kafka/config/kraft/server.properties
-      - ./config/client-properties:/opt/kafka/config/client-properties
-      - ./config/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf
+      - ./data:/var/lib/kafka/data:Z
+      - ./config/certs:/opt/kafka/secrets:Z
+      - ./scripts:/opt/kafka/scripts:Z
+      - ./config/server.properties:/opt/kafka/config/kraft/server.properties:Z
+      - ./config/client-properties:/opt/kafka/config/client-properties:Z
+      - ./config/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf:Z
     environment:
       - KAFKA_OPTS=-Djava.security.auth.login.config=/opt/kafka/config/kafka_jaas.conf
       - KAFKA_HEAP_OPTS=-Xms1g -Xmx1g
