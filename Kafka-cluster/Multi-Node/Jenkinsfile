@@ -273,7 +273,7 @@ IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
 echo "IMAGE: \$IMAGE"
 echo "REGISTRY: \$REGISTRY"
-sudo chown -R 101000:101000 "${REMOTE_DIR}"
+sudo chown -R 100999:100999 "${REMOTE_DIR}"
 cd $REMOTE_DIR
 podman-compose -f podman-compose.yml up -d
 EOF
