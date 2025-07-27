@@ -289,8 +289,8 @@ stage('Verify Initial Cluster Health') {
   steps {
     sshagent(credentials: ['ec2-ssh-key']) {
       script {
-        def maxRetries = 6
-        def sleepSeconds = 10
+        def maxRetries = 5
+        def sleepSeconds = 45
         def success = false
 
         for (int i = 1; i <= maxRetries; i++) {
@@ -369,8 +369,8 @@ stage('Re-verify Cluster Health Post-Restart') {
   steps {
     sshagent(credentials: ['ec2-ssh-key']) {
       script {
-        def maxRetries = 6
-        def sleepSeconds = 10
+        def maxRetries = 5
+        def sleepSeconds = 45
         def success = false
 
         for (int i = 1; i <= maxRetries; i++) {
