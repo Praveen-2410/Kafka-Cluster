@@ -189,7 +189,6 @@ stage('Distribute Files to All Nodes') {
               $MULTI_NODE_REMOTE_DIR/scripts/* \
               ${node}:${REMOTE_DIR}/scripts/
 
-            '
           """
         }
       }
