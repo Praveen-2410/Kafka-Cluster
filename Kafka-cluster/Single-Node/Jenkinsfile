@@ -246,9 +246,9 @@ stage('Generate Remote Environment File') {
             for (int i = 1; i <= 3; i++) {
               sh """
                 ssh -o StrictHostKeyChecking=no $SINGLENODE '
-                  sudo podman run --rm \
-                    -v $REMOTE_DIR/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties \
-                    -v $REMOTE_DIR/broker-${i}/data:/var/lib/kafka/data \
+                  sudo podman run --rm --user=0 \
+                    -v $REMOTE_DIR/broker-${i}/config/server.properties:/opt/kafka/config/kraft/server.properties:Z \
+                    -v $REMOTE_DIR/broker-${i}/data:/var/lib/kafka/data:Z \
                     $KAFKA_BASE_IMAGE \
                     /opt/kafka/bin/kafka-storage.sh format -t $clusterId -c /opt/kafka/config/kraft/server.properties
                 '
