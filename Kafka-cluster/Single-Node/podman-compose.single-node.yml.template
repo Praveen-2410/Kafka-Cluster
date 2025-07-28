@@ -15,10 +15,10 @@ services:
     volumes:
       - ./broker-1/data:/var/lib/kafka/data:Z
       - ./broker-1/config/server.properties:/opt/kafka/config/kraft/server.properties:Z
-      - ./shared/certs:/opt/kafka/secrets:Z
-      - ./shared/jaas/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf:Z
-      - ./shared/client-properties:/opt/kafka/config/client-properties:Z
-      - ./shared/scripts:/opt/kafka/config/scripts:Z
+      - ./shared/certs:/opt/kafka/secrets:z
+      - ./shared/jaas/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf:z
+      - ./shared/client-properties:/opt/kafka/config/client-properties:z
+      - ./shared/scripts:/opt/kafka/config/scripts:z
     environment:
       - KAFKA_OPTS=-Djava.security.auth.login.config=/opt/kafka/config/kafka_jaas.conf
       - KAFKA_HEAP_OPTS=-Xms1g -Xmx1g
@@ -40,10 +40,10 @@ services:
     volumes:
       - ./broker-2/data:/var/lib/kafka/data:Z
       - ./broker-2/config/server.properties:/opt/kafka/config/kraft/server.properties:Z
-      - ./shared/certs:/opt/kafka/secrets:Z
-      - ./shared/jaas/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf:Z
-      - ./shared/client-properties:/opt/kafka/config/client-properties:Z
-      - ./shared/scripts:/opt/kafka/config/scripts:Z
+      - ./shared/certs:/opt/kafka/secrets:z
+      - ./shared/jaas/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf:z
+      - ./shared/client-properties:/opt/kafka/config/client-properties:z
+      - ./shared/scripts:/opt/kafka/config/scripts:z
     environment:
       - KAFKA_OPTS=-Djava.security.auth.login.config=/opt/kafka/config/kafka_jaas.conf
       - KAFKA_HEAP_OPTS=-Xms1g -Xmx1g
@@ -65,10 +65,10 @@ services:
     volumes:
       - ./broker-3/data:/var/lib/kafka/data:Z
       - ./broker-3/config/server.properties:/opt/kafka/config/kraft/server.properties:Z
-      - ./shared/certs:/opt/kafka/secrets:Z
-      - ./shared/jaas/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf:Z
-      - ./shared/client-properties:/opt/kafka/config/client-properties:Z
-      - ./shared/scripts:/opt/kafka/config/scripts:Z
+      - ./shared/certs:/opt/kafka/secrets:z
+      - ./shared/jaas/kafka_jaas.conf:/opt/kafka/config/kafka_jaas.conf:z
+      - ./shared/client-properties:/opt/kafka/config/client-properties:z
+      - ./shared/scripts:/opt/kafka/config/scripts:z
     environment:
       - KAFKA_OPTS=-Djava.security.auth.login.config=/opt/kafka/config/kafka_jaas.conf
       - KAFKA_HEAP_OPTS=-Xms1g -Xmx1g
