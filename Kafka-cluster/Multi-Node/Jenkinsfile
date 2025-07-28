@@ -286,23 +286,6 @@ EOF
       }
     }
 
-stage('Restore Access for Jenkins') {
-  steps {
-    sshagent(credentials: ['ec2-ssh-key']) {
-      script {
-        def nodes = [env.NODE1, env.NODE2, env.NODE3]
-        for (node in nodes) {
-          sh """
-            ssh -o StrictHostKeyChecking=no ${node} '
-              sudo setfacl -R -m u:ec2-user:rwx $REMOTE_DIR
-              sudo setfacl -R -m d:u:ec2-user:rwx $REMOTE_DIR
-            '
-          """
-        }
-      }
-    }
-  }
-}
 
 
 stage('Verify Initial Cluster Health') {
