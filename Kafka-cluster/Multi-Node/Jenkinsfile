@@ -150,11 +150,9 @@ stage('Distribute Files to All Nodes') {
               mkdir -p "\$BASE_DIR/config/client-properties"
               mkdir -p "\$BASE_DIR/scripts"
 
-              # Only set permissions where ec2-user still owns the files
-              if [ -w "\$BASE_DIR/scripts" ]; then chmod 755 "\$BASE_DIR/scripts"; fi
-              if [ -w "\$BASE_DIR/config" ]; then chmod 755 "\$BASE_DIR/config"; fi
-              if [ -w "\$BASE_DIR/config/certs" ]; then chmod 755 "\$BASE_DIR/config/certs"; fi
-              if [ -w "\$BASE_DIR/config/client-properties" ]; then chmod 755 "\$BASE_DIR/config/client-properties"; fi
+              # Grant ec2-user access via ACL 
+              sudo setfacl -R -m u:ec2-user:rwx "\$BASE_DIR"
+              sudo setfacl -R -m d:u:ec2-user:rwx "\$BASE_DIR"
             '
 
             # Copy core files
