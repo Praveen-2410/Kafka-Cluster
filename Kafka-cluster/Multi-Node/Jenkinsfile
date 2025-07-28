@@ -189,10 +189,6 @@ stage('Distribute Files to All Nodes') {
               $MULTI_NODE_REMOTE_DIR/scripts/* \
               ${node}:${REMOTE_DIR}/scripts/
 
-            # Set permissions
-            ssh -o StrictHostKeyChecking=no ${node} '
-              chmod 644 $REMOTE_DIR/config/certs/*.p12
-              chmod +x $REMOTE_DIR/scripts/*.sh
             '
           """
         }
