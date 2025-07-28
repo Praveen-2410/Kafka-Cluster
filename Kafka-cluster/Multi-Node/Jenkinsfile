@@ -292,8 +292,8 @@ stage('Restore Access for Jenkins') {
         for (node in nodes) {
           sh """
             ssh -o StrictHostKeyChecking=no ${node} '
-              setfacl -R -m u:ec2-user:rwx $REMOTE_DIR
-              setfacl -R -m d:u:ec2-user:rwx $REMOTE_DIR
+              sudo setfacl -R -m u:ec2-user:rwx $REMOTE_DIR
+              sudo setfacl -R -m d:u:ec2-user:rwx $REMOTE_DIR
             '
           """
         }
