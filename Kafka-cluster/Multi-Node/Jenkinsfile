@@ -149,8 +149,8 @@ stage('Distribute Files to All Nodes') {
               mkdir -p "\$BASE_DIR/config/certs"
               mkdir -p "\$BASE_DIR/config/client-properties"
               mkdir -p "\$BASE_DIR/scripts"
-              chmod -R 755 "\$BASE_DIR"
-              chmod -R 755 "\$BASE_DIR/data"
+              chmod 755 "\$BASE_DIR"
+              chmod 755 "\$BASE_DIR/data"
             '
 
             # Copy core files
