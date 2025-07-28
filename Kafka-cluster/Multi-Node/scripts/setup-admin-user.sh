@@ -31,7 +31,7 @@ if [[ "$USER_EXISTS" -eq 1 ]]; then
   echo "Admin user already exists."
 else
   echo "🔧 Creating admin user..."
-  podman exec -i "$CONTAINER_NAME" \
+  sudo podman exec -i "$CONTAINER_NAME" \
     /opt/kafka/bin/kafka-configs.sh \
     --bootstrap-server "$BOOTSTRAP_INTERNAL" \
     --alter --add-config "SCRAM-SHA-512=[iterations=4096,password=$ADMIN_PASSWORD]" \
@@ -48,7 +48,7 @@ EXPECTED_ACLS=$(cat <<EOF
 EOF
 )
 
-CURRENT_ACLS=$(podman exec -i "$CONTAINER_NAME" \
+CURRENT_ACLS=$(sudo podman exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-acls.sh \
   --bootstrap-server "$BOOTSTRAP_AUTH" \
   --command-config "$CLIENT_CONFIG_PATH" \
@@ -71,26 +71,17 @@ normalize_acls() {
 NORMALIZED_EXPECTED=$(normalize_acls "$EXPECTED_ACLS")
 NORMALIZED_CURRENT=$(normalize_acls "$CURRENT_ACLS")
 
-EXPECTED_FILE=$(mktemp)
-CURRENT_FILE=$(mktemp)
-
-echo "$NORMALIZED_EXPECTED" > "$EXPECTED_FILE"
-echo "$NORMALIZED_CURRENT" > "$CURRENT_FILE"
-
-if diff "$EXPECTED_FILE" "$CURRENT_FILE" >/dev/null; then
-  echo "✅ Admin user already has expected ACLs. Skipping ACL update."
+if diff <(echo "$NORMALIZED_EXPECTED") <(echo "$NORMALIZED_CURRENT") >/dev/null; then
+  echo "Admin user already has expected ACLs. Skipping ACL update."
 else
-  echo "⚠️ Some ACLs are missing:"
-  # Suppress error from comm if no differences
-  missing_acls=$(comm -23 "$EXPECTED_FILE" "$CURRENT_FILE" || true)
-  echo "$missing_acls" | while read -r missing; do
-    [ -n "$missing" ] && echo "Missing ACL: $missing"
+  echo "Some ACLs are missing:"
+  comm -23 <(echo "$NORMALIZED_EXPECTED") <(echo "$NORMALIZED_CURRENT") | while read -r missing; do
+    echo "Missing ACL: $missing"
   done
 
+  echo "Updating Admin ACLs..."
 
-  echo "🔐 Updating Admin ACLs..."
-
-  podman exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
+  sudo podman exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
     --bootstrap-server "$BOOTSTRAP_AUTH" \
     --command-config "$CLIENT_CONFIG_PATH" \
     --add --allow-principal "User:$ADMIN_USER" \
@@ -99,7 +90,7 @@ else
     --topic '*' \
     --group '*'
 
-  podman exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
+  sudo podman exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
     --bootstrap-server "$BOOTSTRAP_AUTH" \
     --command-config "$CLIENT_CONFIG_PATH" \
     --add --allow-principal "User:$ADMIN_USER" \
@@ -107,8 +98,5 @@ else
     --resource-pattern-type literal \
     --cluster
 
-  echo "✅ ACLs granted to admin user."
+  echo "ACLs granted to admin user."
 fi
-
-# Cleanup
-rm -f "$EXPECTED_FILE" "$CURRENT_FILE" || true
