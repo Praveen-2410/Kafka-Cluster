@@ -3,7 +3,6 @@ services:
   broker-1:
     image: ${IMAGE_FULL}
     container_name: ${SINGLE_NODE_CONTAINER_NAME_1}
-    user: "1000:1000"
     ports:
       - "${SINGLE_NODE_BROKER1_INTERNAL_PORT}:${SINGLE_NODE_BROKER1_INTERNAL_PORT}"
       - "${SINGLE_NODE_BROKER1_CONTROLLER_PORT}:${SINGLE_NODE_BROKER1_CONTROLLER_PORT}"
@@ -28,8 +27,7 @@ services:
 
   broker-2:
     image: ${IMAGE_FULL}
-    container_name: ${SINGLE_NODE_CONTAINER_NAME_2}
-    user: "1000:1000"
+    container_name: ${SINGLE_NODE_CONTAINER_NAME_2}    
     ports:
       - "${SINGLE_NODE_BROKER2_INTERNAL_PORT}:${SINGLE_NODE_BROKER2_INTERNAL_PORT}"
       - "${SINGLE_NODE_BROKER2_CONTROLLER_PORT}:${SINGLE_NODE_BROKER2_CONTROLLER_PORT}"
@@ -54,8 +52,7 @@ services:
 
   broker-3:
     image: ${IMAGE_FULL}
-    container_name: ${SINGLE_NODE_CONTAINER_NAME_3}
-    user: "1000:1000"
+    container_name: ${SINGLE_NODE_CONTAINER_NAME_3}   
     ports:
       - "${SINGLE_NODE_BROKER3_INTERNAL_PORT}:${SINGLE_NODE_BROKER3_INTERNAL_PORT}"
       - "${SINGLE_NODE_BROKER3_CONTROLLER_PORT}:${SINGLE_NODE_BROKER3_CONTROLLER_PORT}"
