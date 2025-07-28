@@ -145,7 +145,6 @@ stage('Distribute Files to All Nodes') {
           sh """
             ssh -o StrictHostKeyChecking=no ${node} '
               BASE_DIR="${REMOTE_DIR}"
-
               mkdir -p "\$BASE_DIR/data"
               mkdir -p "\$BASE_DIR/config/certs"
               mkdir -p "\$BASE_DIR/config/client-properties"
@@ -284,6 +283,23 @@ EOF
         }
       }
     }
+
+stage('Restore Access for Jenkins') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      def nodes = [env.NODE1, env.NODE2, env.NODE3]
+      for (node in nodes) {
+        sh """
+          ssh -o StrictHostKeyChecking=no ${node} '
+            setfacl -R -m u:ec2-user:rwx $REMOTE_DIR
+            setfacl -R -m d:u:ec2-user:rwx $REMOTE_DIR
+          '
+        """
+      }
+    }
+  }
+}
+
 
 stage('Verify Initial Cluster Health') {
   steps {
