@@ -149,8 +149,12 @@ stage('Distribute Files to All Nodes') {
               mkdir -p "\$BASE_DIR/config/certs"
               mkdir -p "\$BASE_DIR/config/client-properties"
               mkdir -p "\$BASE_DIR/scripts"
-              chmod 755 "\$BASE_DIR"
-              chmod 755 "\$BASE_DIR/data"
+
+              # Only set permissions where ec2-user still owns the files
+              if [ -w "\$BASE_DIR/scripts" ]; then chmod 755 "\$BASE_DIR/scripts"; fi
+              if [ -w "\$BASE_DIR/config" ]; then chmod 755 "\$BASE_DIR/config"; fi
+              if [ -w "\$BASE_DIR/config/certs" ]; then chmod 755 "\$BASE_DIR/config/certs"; fi
+              if [ -w "\$BASE_DIR/config/client-properties" ]; then chmod 755 "\$BASE_DIR/config/client-properties"; fi
             '
 
             # Copy core files
