@@ -81,9 +81,12 @@ if diff "$EXPECTED_FILE" "$CURRENT_FILE" >/dev/null; then
   echo "✅ Admin user already has expected ACLs. Skipping ACL update."
 else
   echo "⚠️ Some ACLs are missing:"
-  comm -23 "$EXPECTED_FILE" "$CURRENT_FILE" | while read -r missing; do
-    echo "Missing ACL: $missing"
+  # Suppress error from comm if no differences
+  missing_acls=$(comm -23 "$EXPECTED_FILE" "$CURRENT_FILE" || true)
+  echo "$missing_acls" | while read -r missing; do
+    [ -n "$missing" ] && echo "Missing ACL: $missing"
   done
+
 
   echo "🔐 Updating Admin ACLs..."
 
@@ -108,4 +111,4 @@ else
 fi
 
 # Cleanup
-rm -f "$EXPECTED_FILE" "$CURRENT_FILE"
+rm -f "$EXPECTED_FILE" "$CURRENT_FILE" || true
