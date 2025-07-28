@@ -158,9 +158,11 @@ stage('Generate Remote Environment File') {
           mkdir -p "\$BASE_DIR/shared/jaas"
           mkdir -p "\$BASE_DIR/shared/client-properties"
           mkdir -p "\$BASE_DIR/shared/scripts"
-          chown -R 1000:1000 \$BASE_DIR
-          chmod -R 755 \$BASE_DIR
-        '
+
+          # Grant ec2-user access via ACL 
+          sudo setfacl -R -m u:ec2-user:rwx "\$BASE_DIR"
+          sudo setfacl -R -m d:u:ec2-user:rwx "\$BASE_DIR"
+          '
 
         # Copy files
         scp -o StrictHostKeyChecking=no \
@@ -197,10 +199,6 @@ stage('Generate Remote Environment File') {
           $SINGLE_NODE_REMOTE_DIR/podman-compose.single-node.yml.template \
           $SINGLENODE:$REMOTE_DIR/shared/
         
-        ssh -o StrictHostKeyChecking=no $SINGLENODE '
-          chmod 644 $REMOTE_DIR/shared/certs/*.p12
-          chmod +x $REMOTE_DIR/shared/scripts/*
-        '
       """
     }
   }
@@ -281,8 +279,7 @@ ssh -o StrictHostKeyChecking=no $SINGLENODE \\
   echo "IMAGE: \$IMAGE"
   echo "REGISTRY: \$REGISTRY"
   echo "Logging in..."
-  echo "\$NEXUS_PASS" | podman login \$REGISTRY -u "\$NEXUS_USER" --password-stdin
-
+  sudo chown -R 100999:100999 "${REMOTE_DIR}"
   cd $REMOTE_DIR
   podman-compose -f podman-compose.yml up -d
 ENDSSH

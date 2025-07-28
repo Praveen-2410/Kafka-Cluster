@@ -21,7 +21,7 @@ ADMIN_PASSWORD="admin-password"
 CLIENT_CONFIG_PATH="/opt/kafka/config/client-properties/admin.properties"
 
 echo "Checking if admin user exists..."
-USER_EXISTS=$(sudo podman exec -i "$CONTAINER_NAME" \
+USER_EXISTS=$( podman exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-configs.sh \
   --bootstrap-server "$BOOTSTRAP_INTERNAL" \
   --describe --entity-type users --entity-name "$ADMIN_USER" 2>/dev/null | \
@@ -31,7 +31,7 @@ if [[ "$USER_EXISTS" -eq 1 ]]; then
   echo "Admin user already exists."
 else
   echo "🔧 Creating admin user..."
-  sudo podman exec -i "$CONTAINER_NAME" \
+   podman exec -i "$CONTAINER_NAME" \
     /opt/kafka/bin/kafka-configs.sh \
     --bootstrap-server "$BOOTSTRAP_INTERNAL" \
     --alter --add-config "SCRAM-SHA-512=[iterations=4096,password=$ADMIN_PASSWORD]" \
@@ -50,7 +50,7 @@ EOF
 )
 
 # Get actual ACLs
-CURRENT_ACLS=$(sudo podman exec -i "$CONTAINER_NAME" \
+CURRENT_ACLS=$( podman exec -i "$CONTAINER_NAME" \
   /opt/kafka/bin/kafka-acls.sh \
   --bootstrap-server "$BOOTSTRAP_AUTH" \
   --command-config "$CLIENT_CONFIG_PATH" \
@@ -85,7 +85,7 @@ else
 
   echo "Updating Admin ACLs..."
 
-  sudo podman exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
+   podman exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
     --bootstrap-server "$BOOTSTRAP_AUTH" \
     --command-config "$CLIENT_CONFIG_PATH" \
     --add --allow-principal "User:$ADMIN_USER" \
@@ -94,7 +94,7 @@ else
     --topic '*' \
     --group '*'
 
-  sudo podman exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
+   podman exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
     --bootstrap-server "$BOOTSTRAP_AUTH" \
     --command-config "$CLIENT_CONFIG_PATH" \
     --add --allow-principal "User:$ADMIN_USER" \
