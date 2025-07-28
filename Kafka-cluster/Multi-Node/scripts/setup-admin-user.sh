@@ -71,15 +71,21 @@ normalize_acls() {
 NORMALIZED_EXPECTED=$(normalize_acls "$EXPECTED_ACLS")
 NORMALIZED_CURRENT=$(normalize_acls "$CURRENT_ACLS")
 
-if diff <(echo "$NORMALIZED_EXPECTED") <(echo "$NORMALIZED_CURRENT") >/dev/null; then
-  echo "Admin user already has expected ACLs. Skipping ACL update."
+EXPECTED_FILE=$(mktemp)
+CURRENT_FILE=$(mktemp)
+
+echo "$NORMALIZED_EXPECTED" > "$EXPECTED_FILE"
+echo "$NORMALIZED_CURRENT" > "$CURRENT_FILE"
+
+if diff "$EXPECTED_FILE" "$CURRENT_FILE" >/dev/null; then
+  echo "✅ Admin user already has expected ACLs. Skipping ACL update."
 else
-  echo "Some ACLs are missing:"
-  comm -23 <(echo "$NORMALIZED_EXPECTED") <(echo "$NORMALIZED_CURRENT") | while read -r missing; do
+  echo "⚠️ Some ACLs are missing:"
+  comm -23 "$EXPECTED_FILE" "$CURRENT_FILE" | while read -r missing; do
     echo "Missing ACL: $missing"
   done
 
-  echo "Updating Admin ACLs..."
+  echo "🔐 Updating Admin ACLs..."
 
   podman exec -i "$CONTAINER_NAME" /opt/kafka/bin/kafka-acls.sh \
     --bootstrap-server "$BOOTSTRAP_AUTH" \
@@ -98,5 +104,8 @@ else
     --resource-pattern-type literal \
     --cluster
 
-  echo "ACLs granted to admin user."
+  echo "✅ ACLs granted to admin user."
 fi
+
+# Cleanup
+rm -f "$EXPECTED_FILE" "$CURRENT_FILE"
