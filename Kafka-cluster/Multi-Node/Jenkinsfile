@@ -320,18 +320,6 @@ stage('Verify Initial Cluster Health') {
   }
 }
 
-stage('Setup Admin User') {
-  steps {
-    sshagent(credentials: ['ec2-ssh-key']) {
-      sh """
-        ssh -o StrictHostKeyChecking=no $NODE1 '
-          cd $REMOTE_DIR/scripts &&
-          bash setup-admin-user.sh
-        '
-      """
-    }
-  }
-}
 
 stage('Update super.users and Restart Brokers') {
   steps {
@@ -400,6 +388,19 @@ stage('Re-verify Cluster Health Post-Restart') {
   }
 }
 
+
+stage('Setup Admin User') {
+  steps {
+    sshagent(credentials: ['ec2-ssh-key']) {
+      sh """
+        ssh -o StrictHostKeyChecking=no $NODE1 '
+          cd $REMOTE_DIR/scripts &&
+          bash setup-admin-user.sh
+        '
+      """
+    }
+  }
+}
 
 stage('Create Users, Topics & ACLs') {
   steps {
