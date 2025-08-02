@@ -17,7 +17,7 @@ CONTAINER_NAME="$CONTAINER_NAME_1"
 BOOTSTRAP_INTERNAL="$BROKER1_IP:$INTERNAL_PORT"
 BOOTSTRAP_AUTH="$BROKER1_IP:$EXTERNAL_PORT"
 ADMIN_USER="admin"
-ADMIN_PASSWORD="admin-password"
+ADMIN_PASSWORD="admin-psswd"
 CLIENT_CONFIG_PATH="/opt/kafka/config/client-properties/admin.properties"
 
 echo "Checking if admin user exists..."
@@ -29,15 +29,6 @@ USER_EXISTS=$( podman exec -i "$CONTAINER_NAME" \
 
 if [[ "$USER_EXISTS" -eq 1 ]]; then
   echo "Admin user already exists."
-else
-  echo "🔧 Creating admin user..."
-   podman exec -i "$CONTAINER_NAME" \
-    /opt/kafka/bin/kafka-configs.sh \
-    --bootstrap-server "$BOOTSTRAP_INTERNAL" \
-    --alter --add-config "SCRAM-SHA-512=[iterations=4096,password=$ADMIN_PASSWORD]" \
-    --entity-type users --entity-name "$ADMIN_USER"
-  echo "Admin user created."
-fi
 
 echo "Verifying admin ACLs..."
 

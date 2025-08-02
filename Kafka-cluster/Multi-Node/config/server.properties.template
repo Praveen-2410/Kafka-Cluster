@@ -35,16 +35,17 @@ log.retention.check.interval.ms=300000
 log.segment.bytes=1073741824
 
 # Add supported SASL mechanisms
-sasl.enabled.mechanisms=SCRAM-SHA-512
+sasl.enabled.mechanisms=PLAIN
+sasl.mechanism.inter.broker.protocol=PLAIN
 
 # Enable SASL
-listener.name.external.scram-sha-512.sasl.enabled.mechanisms=SCRAM-SHA-512
+listener.name.external.plain.sasl.enabled.mechanisms=PLAIN
 
 # Optional: define super users
-super.users=User:ANONYMOUS
+super.users=User:admin
 
 # Enable Kafka's built-in authorization mechanism
 authorizer.class.name=org.apache.kafka.metadata.authorizer.StandardAuthorizer
 
 # (Optional) Control whether to log authorization decisions
-allow.everyone.if.no.acl.found=true
+allow.everyone.if.no.acl.found=false

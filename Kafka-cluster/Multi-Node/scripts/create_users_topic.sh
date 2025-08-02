@@ -20,31 +20,6 @@ sanitize_topic_name() {
   echo "$1" | sed 's/Optional\[//;s/\]//'
 }
 
-# ✅ Check if user exists
-user_exists() {
-   podman exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
-    --bootstrap-server "$BOOTSTRAP" \
-    --command-config "$CONFIG" \
-    --describe --entity-type users --entity-name "$1" 2>/dev/null |
-    grep -q "SCRAM-SHA-512"
-}
-
-# ✅ Create user if not exists
-create_user() {
-  local user=$1
-  local password=${USER_PASSWORDS[$user]}
-
-  if user_exists "$user"; then
-    echo "✅ User '$user' exists"
-  else
-    echo "➕ Creating user: $user"
-     podman exec "$CONTAINER_NAME" /opt/kafka/bin/kafka-configs.sh \
-      --bootstrap-server "$BOOTSTRAP" \
-      --command-config "$CONFIG" \
-      --alter --add-config "SCRAM-SHA-512=[iterations=4096,password=$password]" \
-      --entity-type users --entity-name "$user"
-  fi
-}
 
 topic_exists() {
   local topic
@@ -115,10 +90,6 @@ grant_acl() {
 
 echo "🚀 Kafka Users, Topics & ACLs Setup Starting..."
 
-# 1️⃣ Create Users
-for user in "${!USER_PASSWORDS[@]}"; do
-  create_user "$user"
-done
 
 # 2️⃣ Create Topics
 for topic in "${TOPICS[@]}"; do
