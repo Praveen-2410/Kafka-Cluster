@@ -29,6 +29,7 @@ USER_EXISTS=$( podman exec -i "$CONTAINER_NAME" \
 
 if [[ "$USER_EXISTS" -eq 1 ]]; then
   echo "Admin user already exists."
+fi
 
 echo "Verifying admin ACLs..."
 
