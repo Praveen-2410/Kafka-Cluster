@@ -90,10 +90,9 @@ stage('Generate Remote Environment File') {
       steps {
         script {
             def githash = sh(script: "git rev-parse --short=7 HEAD", returnStdout: true).trim()
-            def timestamp = sh(script: "date +%Y%m%d%H%M%S", returnStdout: true).trim()
 
            // Construct the tag
-           env.IMAGE_TAG = "${env.KAFKA_RELEASE}-${githash}-${timestamp}"
+           env.IMAGE_TAG = "${githash}"
         }
       }
     }
@@ -106,7 +105,7 @@ stage('Generate Remote Environment File') {
             // Define the image name prefix
             def imagePrefix = "multi-node-npc-uae-kafka"
 
-            env.IMAGE_FULL = "${env.NEXUS_HOST}/${env.NEXUS_REPO}/${imagePrefix}:${env.IMAGE_TAG}"
+            env.IMAGE_FULL = "${env.NEXUS_HOST}/${env.NEXUS_REPO}/${imagePrefix}-${env.KAFKA_RELEASE}:${env.IMAGE_TAG}"
             echo "Using image: ${env.IMAGE_FULL}"
             writeFile file: 'image-tag.txt', text: "${env.IMAGE_FULL}"
           }
