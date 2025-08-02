@@ -42,7 +42,7 @@ sasl.mechanism.inter.broker.protocol=PLAIN
 listener.name.external.plain.sasl.enabled.mechanisms=PLAIN
 
 # Optional: define super users
-super.users=User:admin
+super.users=User:ANONYMOUS
 
 # Enable Kafka's built-in authorization mechanism
 authorizer.class.name=org.apache.kafka.metadata.authorizer.StandardAuthorizer
