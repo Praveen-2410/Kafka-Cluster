@@ -76,6 +76,12 @@ stage('Generate Remote Environment File') {
         export CONTAINER_NAME_2=${getValue('CONTAINER_NAME_2')}
         export CONTAINER_NAME_3=${getValue('CONTAINER_NAME_3')}
 
+        export KAFKA_ADMIN_PASSWORD=${getValue('KAFKA_ADMIN_PASSWORD')}
+        export KAFKA_DU_PASSWORD=${getValue('KAFKA_DU_PASSWORD')}
+        export KAFKA_ETIS_PASSWORD=${getValue('KAFKA_ETIS_PASSWORD')}
+        export KAFKA_CRDB_PASSWORD=${getValue('KAFKA_CRDB_PASSWORD')}
+        export KAFKA_TDRA_PASSWORD=${getValue('KAFKA_TDRA_PASSWORD')}
+
       """.stripIndent()
 
       writeFile file: 'remote-env.sh', text: remoteEnv
