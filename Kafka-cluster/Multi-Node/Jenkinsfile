@@ -168,7 +168,7 @@ stage('Distribute Files to All Nodes') {
 
             # Copy JAAS config files
             scp -o StrictHostKeyChecking=no \
-              $MULTI_NODE_REMOTE_DIR/config/kafka_jaas.conf \
+              $MULTI_NODE_REMOTE_DIR/config/kafka_jaas.conf.template \
               $MULTI_NODE_REMOTE_DIR/config/kafka_admin_jaas.conf \
               ${node}:${REMOTE_DIR}/config/
 
