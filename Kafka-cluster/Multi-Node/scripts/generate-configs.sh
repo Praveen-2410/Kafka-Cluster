@@ -38,12 +38,16 @@ CONTAINER_NAME=$(eval echo \$CONTAINER_NAME_${BROKER_NUM})
 # Export required for envsubst
 export NODE_ID BROKER_IP CONTAINER_NAME IMAGE_FULL NEXUS_HOST \
   BROKER1_IP BROKER2_IP BROKER3_IP \
-  INTERNAL_PORT EXTERNAL_PORT CONTROLLER_PORT
+  INTERNAL_PORT EXTERNAL_PORT CONTROLLER_PORT \
+  KAFKA_ADMIN_PASSWORD KAFKA_DU_PASSWORD KAFKA_ETIS_PASSWORD KAFKA_CRDB_PASSWORD KAFKA_TDRA_PASSWORD
 
 # Generate config/server.properties
 envsubst < config/server.properties.template > config/server.properties
 
 # Generate podman-compose.yml
 envsubst < podman-compose.yml.template > podman-compose.yml
+
+# Generate JAAS config
+envsubst < config/kafka_jaas.conf.template > config/kafka_jaas.conf
 
 echo "✅ Config generated for broker-$BROKER_NUM at IP $BROKER_IP"
