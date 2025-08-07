@@ -5,12 +5,10 @@ KEY="mykafkakey"
 JAAS_ORIG="/opt/kafka/config/kafka_jaas.conf"
 JAAS_DECRYPTED="/tmp/kafka_jaas_decrypted.conf"
 
-# === XOR + Base64 Decryption ===
+# === XOR Decryption using shell and base64 ===
 decrypt_password() {
   local encrypted_b64="$1"
   local key="$KEY"
-
-  # Decode Base64 and convert to hex string
   local decoded
   decoded=$(echo "$encrypted_b64" | base64 -d | xxd -p -c 256)
 
@@ -24,24 +22,26 @@ decrypt_password() {
     decrypted+=$(printf "\\x%02x" "$xor_val")
   done
 
-  # Convert hex escape sequence to readable string
   printf "$decrypted"
 }
 
-# === Begin JAAS Decryption ===
+# === Export key ===
+export KEY="$KEY"
+
+# === Decrypt JAAS file ===
 > "$JAAS_DECRYPTED"
 while IFS= read -r line; do
   if [[ "$line" =~ ^user_([a-zA-Z0-9_]+)=(.*) ]]; then
     user="${BASH_REMATCH[1]}"
     encrypted_pw="${BASH_REMATCH[2]}"
     decrypted_pw=$(decrypt_password "$encrypted_pw")
-    echo "user_$user=\"$decrypted_pw\"" >> "$JAAS_DECRYPTED"
+    echo "user_$user=$decrypted_pw" >> "$JAAS_DECRYPTED"
   else
     echo "$line" >> "$JAAS_DECRYPTED"
   fi
 done < "$JAAS_ORIG"
 
-# === Set JAAS file for Kafka and Start ===
+# === Set JAAS and Start Kafka ===
 export KAFKA_OPTS="-Djava.security.auth.login.config=$JAAS_DECRYPTED $KAFKA_OPTS"
 
 exec /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/kraft/server.properties
