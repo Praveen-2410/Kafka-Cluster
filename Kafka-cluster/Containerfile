@@ -1,8 +1,9 @@
 FROM docker.io/apache/kafka:4.0.0
 
-# Switch to root to create directories and copy files
+# Switch to root to install dependencies and set permissions
 USER root
 
+# Create and copy application files
 RUN mkdir -p /home/npc
 
 COPY KafkaOperatorConsumer-du /home/npc/KafkaOperatorConsumer-du
