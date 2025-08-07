@@ -4,10 +4,8 @@ FROM docker.io/apache/kafka:4.0.0
 USER root
 
 # Install perl
-RUN yum update && \
-    yum install -y perl && \
-    yum clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN yum install -y perl && \
+    yum clean all
 
 # Create and copy application files
 RUN mkdir -p /home/npc
