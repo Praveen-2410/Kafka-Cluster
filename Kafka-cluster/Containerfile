@@ -4,9 +4,9 @@ FROM docker.io/apache/kafka:4.0.0
 USER root
 
 # Install perl
-RUN apt-get update && \
-    apt-get install -y perl && \
-    apt-get clean && \
+RUN yum update && \
+    yum install -y perl && \
+    yum clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Create and copy application files
