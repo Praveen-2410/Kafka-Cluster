@@ -3,10 +3,6 @@ FROM docker.io/apache/kafka:4.0.0
 # Switch to root to install dependencies and set permissions
 USER root
 
-# Install perl
-RUN yum install -y perl && \
-    yum clean all
-
 # Create and copy application files
 RUN mkdir -p /home/npc
 
