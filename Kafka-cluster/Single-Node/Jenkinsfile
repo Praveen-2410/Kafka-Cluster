@@ -145,7 +145,7 @@ stage('Load Environment Variables from Jenkins Secret File') {
 
         # Copy server.properties.template
         scp -o StrictHostKeyChecking=no \
-          $SINGLE_NODE_REMOTE_DIR/.env \
+          Kafka-cluster/.env \
           $SINGLE_NODE_REMOTE_DIR/config/server.properties.template \
           $SINGLE_NODE_REMOTE_DIR/podman-compose.single-node.yml.template \
           $SINGLENODE:$REMOTE_DIR/shared/
