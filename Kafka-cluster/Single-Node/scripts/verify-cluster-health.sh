@@ -4,10 +4,10 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-ENV_FILE="$PROJECT_ROOT/remote-env.sh"
+ENV_FILE="$PROJECT_ROOT/.env"
 
 if [ ! -f "$ENV_FILE" ]; then
-  echo "❌ ERROR: remote-env.sh not found!"
+  echo "❌ ERROR: .env not found!"
   exit 1
 fi
 

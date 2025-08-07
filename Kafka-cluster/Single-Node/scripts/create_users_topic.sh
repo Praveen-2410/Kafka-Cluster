@@ -4,7 +4,7 @@
 set -e
 
 # Load environment and entities
-source ../remote-env.sh
+source ../.env
 source kafka-entities.sh
 
 CONTAINER_NAME="$SINGLE_NODE_CONTAINER_NAME_1"

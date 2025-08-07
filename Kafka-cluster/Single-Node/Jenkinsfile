@@ -44,55 +44,6 @@ stage('Load Environment Variables from Jenkins Secret File') {
   }
 }
 
-stage('Generate Remote Environment File') {
-  steps {
-    script {
-      def envLines = env.SECRET_ENV_CONTENT.split('\n')
-      def getValue = { key ->
-        def line = envLines.find { it.startsWith("${key}=") }
-        return line ? line.split('=', 2)[1].trim() : null
-      }
-
-      def remoteEnv = """
-        export REMOTE_DIR="${getValue('REMOTE_DIR')}"
-        export KAFKA_BASE_IMAGE="${getValue('KAFKA_BASE_IMAGE')}"
-        export KAFKA_RELEASE="${getValue('KAFKA_RELEASE')}"
-        export NEXUS_HOST="${getValue('NEXUS_HOST')}"
-        export NEXUS_REPO="${getValue('NEXUS_REPO')}"
-
-        export SINGLE_NODE_IP=${getValue('SINGLE_NODE_IP')}
-
-        # Broker 1 (on single-node)
-        export SINGLE_NODE_BROKER1_INTERNAL_PORT=${getValue('SINGLE_NODE_BROKER1_INTERNAL_PORT')}
-        export SINGLE_NODE_BROKER1_CONTROLLER_PORT=${getValue('SINGLE_NODE_BROKER1_CONTROLLER_PORT')}
-        export SINGLE_NODE_BROKER1_EXTERNAL_PORT=${getValue('SINGLE_NODE_BROKER1_EXTERNAL_PORT')}
-
-        # Broker 3 (on single-node)
-        export SINGLE_NODE_BROKER2_INTERNAL_PORT=${getValue('SINGLE_NODE_BROKER2_INTERNAL_PORT')}
-        export SINGLE_NODE_BROKER2_CONTROLLER_PORT=${getValue('SINGLE_NODE_BROKER2_CONTROLLER_PORT')}
-        export SINGLE_NODE_BROKER2_EXTERNAL_PORT=${getValue('SINGLE_NODE_BROKER2_EXTERNAL_PORT')}
-
-        # Broker 3 (on single-node)
-        export SINGLE_NODE_BROKER3_INTERNAL_PORT=${getValue('SINGLE_NODE_BROKER3_INTERNAL_PORT')}
-        export SINGLE_NODE_BROKER3_CONTROLLER_PORT=${getValue('SINGLE_NODE_BROKER3_CONTROLLER_PORT')}
-        export SINGLE_NODE_BROKER3_EXTERNAL_PORT=${getValue('SINGLE_NODE_BROKER3_EXTERNAL_PORT')}
-
-        export BROKER_ID_1=${getValue('BROKER_ID_1')}
-        export BROKER_ID_2=${getValue('BROKER_ID_2')}
-        export BROKER_ID_3=${getValue('BROKER_ID_3')}
-
-        export SINGLE_NODE_CONTAINER_NAME_1=${getValue('CONTAINER_NAME_1')}
-        export SINGLE_NODE_CONTAINER_NAME_2=${getValue('CONTAINER_NAME_2')}
-        export SINGLE_NODE_CONTAINER_NAME_3=${getValue('CONTAINER_NAME_3')}
-
-      """.stripIndent()
-
-      writeFile file: 'remote-env.sh', text: remoteEnv
-      sh 'chmod +x remote-env.sh'
-    }
-  }
-}
-
 
     stage('Generate Dynamic Tag') {
       steps {
@@ -194,7 +145,7 @@ stage('Generate Remote Environment File') {
 
         # Copy server.properties.template
         scp -o StrictHostKeyChecking=no \
-          remote-env.sh \
+          $SINGLE_NODE_REMOTE_DIR/.env \
           $SINGLE_NODE_REMOTE_DIR/config/server.properties.template \
           $SINGLE_NODE_REMOTE_DIR/podman-compose.single-node.yml.template \
           $SINGLENODE:$REMOTE_DIR/shared/
@@ -430,12 +381,6 @@ stage('Cleanup conatiner Images') {
         sh '''
           cd Kafka-cluster/Single-Node/scripts &&
           bash cleanup-jenkins-images.sh
-        '''
-
-        echo "Cleaning up old images in Nexus (retain 5)..."
-        sh '''
-          cd Kafka-cluster/Single-Node/scripts &&
-          bash cleanup-nexus-images.sh
         '''
 
         echo "Cleaning up old images on Single Node (retain 3)..."

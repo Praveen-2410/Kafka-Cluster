@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Load environment variables
-ENV_FILE="$(dirname "$0")/../remote-env.sh"
+ENV_FILE="$(dirname "$0")/../.env"
 if [ ! -f "$ENV_FILE" ]; then
-  echo "❌ remote-env.sh not found!"
+  echo "❌ .env not found!"
   exit 1
 fi
 
@@ -12,7 +12,7 @@ source "$ENV_FILE"
 
 # Now verify if needed vars exist
 if [ -z "$KAFKA_RELEASE" ] || [ -z "$NEXUS_REPO" ]; then
-  echo "❌ Missing KAFKA_RELEASE or NEXUS_REPO in remote-env.sh"
+  echo "❌ Missing KAFKA_RELEASE or NEXUS_REPO in .env"
   exit 1
 fi
 
