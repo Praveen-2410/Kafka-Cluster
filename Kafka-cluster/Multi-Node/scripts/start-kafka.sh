@@ -1,47 +1,40 @@
 #!/bin/bash
+set -e
 
-# === Configuration ===
 KEY="mykafkakey"
-JAAS_ORIG="/opt/kafka/config/kafka_jaas.conf"
-JAAS_DECRYPTED="/tmp/kafka_jaas_decrypted.conf"
+ENCRYPTED_FILE="/opt/kafka/config/kafka_jaas.conf"
+TEMP_FILE="/tmp/kafka_jaas_runtime.conf"
 
-# === XOR Decryption using shell and base64 ===
-decrypt_password() {
-  local encrypted_b64="$1"
-  local key="$KEY"
-  local decoded
-  decoded=$(echo "$encrypted_b64" | base64 -d | xxd -p -c 256)
+xor_decrypt() {
+  local key="$1"
+  local input_b64="$2"
+  local input
+  input=$(echo "$input_b64" | base64 --decode)
+  local output=""
+  local key_len=${#key}
+  local i=0
 
-  local decrypted=""
-  for ((i=0; i<${#decoded}; i+=2)); do
-    byte_hex="${decoded:$i:2}"
-    byte_val=$((16#${byte_hex}))
-    key_char="${key:$(( (i/2) % ${#key} )):1}"
-    key_val=$(printf "%d" "'$key_char")
-    xor_val=$(( byte_val ^ key_val ))
-    decrypted+=$(printf "\\x%02x" "$xor_val")
-  done
+  while IFS= read -r -n1 char; do
+    key_char=${key:i%key_len:1}
+    xor_result=$(( $(printf '%d' "'$char") ^ $(printf '%d' "'$key_char") ))
+    output+=$(printf "\\x%02x" "$xor_result")
+    ((i++))
+  done <<< "$input"
 
-  printf "$decrypted"
+  echo -e "$output"
 }
 
-# === Export key ===
-export KEY="$KEY"
-
-# === Decrypt JAAS file ===
-> "$JAAS_DECRYPTED"
+# Copy structure but replace encrypted passwords
 while IFS= read -r line; do
-  if [[ "$line" =~ ^user_([a-zA-Z0-9_]+)=(.*) ]]; then
-    user="${BASH_REMATCH[1]}"
-    encrypted_pw="${BASH_REMATCH[2]}"
-    decrypted_pw=$(decrypt_password "$encrypted_pw")
-    echo "user_$user=$decrypted_pw" >> "$JAAS_DECRYPTED"
+  if [[ "$line" == user_* ]]; then
+    user=$(echo "$line" | cut -d'=' -f1)
+    enc_pass=$(echo "$line" | cut -d'=' -f2)
+    dec_pass=$(xor_decrypt "$KEY" "$enc_pass")
+    echo "$user=$dec_pass" >> "$TEMP_FILE"
   else
-    echo "$line" >> "$JAAS_DECRYPTED"
+    echo "$line" >> "$TEMP_FILE"
   fi
-done < "$JAAS_ORIG"
+done < "$ENCRYPTED_FILE"
 
-# === Set JAAS and Start Kafka ===
-export KAFKA_OPTS="-Djava.security.auth.login.config=$JAAS_DECRYPTED $KAFKA_OPTS"
-
-exec /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/kraft/server.properties
+# Start Kafka using temp JAAS file
+KAFKA_OPTS="-Djava.security.auth.login.config=$TEMP_FILE" exec /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/kraft/server.properties
