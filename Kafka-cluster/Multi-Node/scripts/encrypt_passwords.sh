@@ -1,35 +1,43 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Predefined list of Kafka users
+# Hardcoded encryption key
+ENC_KEY="kafkakey"
+
+# Output JAAS file path (encrypted passwords)
+OUTFILE="./config/kafka_jaas.conf"
+
+# Predefined users
 USERS=("admin" "du" "etis" "crdb" "tdra")
 
-# Prompt for the encryption key
-read -sp "Enter encryption key: " KEY
-echo
-
-# Function to XOR and Base64 encode a password
-xor_encrypt() {
-  local key="$1"
-  local input="$2"
-  local output=""
-  local key_len=${#key}
-  local i=0
-
-  while IFS= read -r -n1 char; do
-    key_char=${key:i%key_len:1}
-    xor_result=$(( $(printf '%d' "'$char") ^ $(printf '%d' "'$key_char") ))
-    output+=$(printf '\\x%02x' "$xor_result")
-    ((i++))
-  done <<< "$input"
-
-  # Convert to binary and Base64 encode
-  echo -e "$output" | base64
+# XOR + Base64 encryption function
+xor_b64() {
+  local plaintext="$1"
+  local key="$2"
+  python3 - <<PY
+import base64
+p = "$plaintext".encode('utf-8')
+k = "$key".encode('utf-8')
+out = bytearray()
+for i, b in enumerate(p):
+    out.append(b ^ k[i % len(k)])
+print(base64.b64encode(bytes(out)).decode('ascii'))
+PY
 }
 
-# Encrypt passwords for each user
-for user in "${USERS[@]}"; do
-  read -sp "Enter password for $user: " password
-  echo
-  encrypted=$(xor_encrypt "$KEY" "$password")
-  echo "$user=$encrypted"
-done
+echo "Generating encrypted kafka_jaas.conf..."
+{
+  echo "KafkaServer {"
+  echo "  org.apache.kafka.common.security.plain.PlainLoginModule required"
+  for user in "${USERS[@]}"; do
+    read -s -p "Enter password for user '$user': " pwd
+    echo
+    enc_pwd=$(xor_b64 "$pwd" "$ENC_KEY")
+    echo "  user_${user}=${enc_pwd}"
+  done
+  echo ";"
+  echo "};"
+} > "$OUTFILE"
+
+chmod 0600 "$OUTFILE"
+echo "Encrypted JAAS file written to $OUTFILE"
