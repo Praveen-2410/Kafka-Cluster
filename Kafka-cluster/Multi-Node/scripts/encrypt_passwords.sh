@@ -5,7 +5,7 @@ set -euo pipefail
 ENC_KEY="kafkakey"
 
 # Output JAAS file path (encrypted passwords)
-OUTFILE="./config/kafka_jaas.conf"
+OUTFILE="$(pwd)/kafka_jaas.conf"
 
 # Predefined users
 USERS=("admin" "du" "etis" "crdb" "tdra")
@@ -31,13 +31,11 @@ echo "Generating encrypted kafka_jaas.conf..."
   echo "  org.apache.kafka.common.security.plain.PlainLoginModule required"
   for user in "${USERS[@]}"; do
     read -s -p "Enter password for user '$user': " pwd
-    echo
     enc_pwd=$(xor_b64 "$pwd" "$ENC_KEY")
     echo "  user_${user}=${enc_pwd}"
   done
-  echo ";"
   echo "};"
 } > "$OUTFILE"
 
-chmod 0600 "$OUTFILE"
+sudo chmod 0600 "$OUTFILE"
 echo "Encrypted JAAS file written to $OUTFILE"
