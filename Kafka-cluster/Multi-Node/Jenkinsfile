@@ -268,9 +268,9 @@ IMAGE=\$(cat $REMOTE_DIR/image-tag.txt)
 REGISTRY=\$(echo \$IMAGE | cut -d/ -f1)
 echo "IMAGE: \$IMAGE"
 echo "REGISTRY: \$REGISTRY"
-bash $REMOTE_DIR/scripts/xor_decrypt.sh
-sudo chown -R 100999:100999 "${REMOTE_DIR}"
 cd $REMOTE_DIR
+bash scripts/xor_decrypt.sh
+sudo chown -R 100999:100999 "${REMOTE_DIR}"
 podman-compose -f podman-compose.yml up -d
 EOF
 """
