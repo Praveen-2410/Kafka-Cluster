@@ -25,21 +25,29 @@ print(out.decode('utf-8'))
 PY
 }
 
-# Build decrypted output
+
+# Count total user_ lines
+total_users=$(grep -c '^[[:space:]]*user_' "$JAAS_FILE")
+counter=0
 
 tmpfile=$(mktemp)
 while IFS= read -r line; do
   if [[ "$line" =~ ^[[:space:]]*user_[^=]+= ]]; then
+    counter=$((counter+1))
     user=$(echo "$line" | cut -d '=' -f 1)
     enc=$(echo "$line" | cut -d '=' -f 2- | tr -d '[:space:]')
     dec_pwd=$(xor_b64_decode "$enc" "$ENC_KEY")
-    echo "  ${user}=${dec_pwd}" >> "$tmpfile"
+    if [[ $counter -eq $total_users ]]; then
+      echo "  ${user}=\"${dec_pwd}\";" >> "$tmpfile"
+    else
+      echo "  ${user}=\"${dec_pwd}\"" >> "$tmpfile"
+    fi
   else
     echo "$line" >> "$tmpfile"
   fi
 done < "$JAAS_FILE"
 
-# Write to a new file instead of replacing the original
+
 DECRYPTED_FILE="${JAAS_FILE%.conf}_decrypt.conf"
 mv -f "$tmpfile" "$DECRYPTED_FILE"
 echo "JAAS file decrypted successfully at $DECRYPTED_FILE"
