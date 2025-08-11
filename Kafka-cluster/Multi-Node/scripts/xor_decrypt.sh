@@ -4,10 +4,10 @@ set -euo pipefail
 # Hardcoded encryption key
 ENC_KEY="kafkakey"
 
-# JAAS file path (default to container location)
-JAAS_FILE="${1:-/opt/kafka/config/kafka_jaas.conf}"
+# JAAS file path (default to config location on host)
+JAAS_FILE="${1:-config/kafka_jaas.conf}"
 
-# XOR + Base64 decryption function
+# Function to decrypt XOR + Base64
 xor_b64_decode() {
   local data="$1"
   local key="$2"
@@ -25,18 +25,21 @@ print(out.decode('utf-8'))
 PY
 }
 
-# Read JAAS file, decrypt user_ passwords
+# Build decrypted output
+
+tmpfile=$(mktemp)
 while IFS= read -r line; do
   if [[ "$line" =~ ^[[:space:]]*user_[^=]+= ]]; then
     user=$(echo "$line" | cut -d '=' -f 1)
-    enc=$(echo "$line" | cut -d '=' -f 2- | tr -d '[:space:]' | sed 's/[^A-Za-z0-9+/=]//g')
-    if [ -n "$enc" ]; then
-      dec_pwd=$(xor_b64_decode "$enc" "$ENC_KEY")
-      echo "  ${user}=${dec_pwd}"
-    else
-      echo "$line"
-    fi
+    enc=$(echo "$line" | cut -d '=' -f 2- | tr -d '[:space:]')
+    dec_pwd=$(xor_b64_decode "$enc" "$ENC_KEY")
+    echo "  ${user}=${dec_pwd}" >> "$tmpfile"
   else
-    echo "$line"
+    echo "$line" >> "$tmpfile"
   fi
 done < "$JAAS_FILE"
+
+# Write to a new file instead of replacing the original
+DECRYPTED_FILE="${JAAS_FILE%.conf}_decrypt.conf"
+mv -f "$tmpfile" "$DECRYPTED_FILE"
+echo "JAAS file decrypted successfully at $DECRYPTED_FILE"
