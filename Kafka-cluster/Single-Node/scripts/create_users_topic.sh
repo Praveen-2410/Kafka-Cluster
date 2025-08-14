@@ -1,10 +1,20 @@
 #!/bin/bash
-
-# Purpose: Create Kafka users, topics, and ACLs
 set -e
 
-# Load environment and entities
-source ../.env
+# Find REMOTE_DIR relative to this script's location
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+REMOTE_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+
+# Path to .env file
+ENV_FILE="$REMOTE_DIR/.env"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "ERROR: .env file not found at $ENV_FILE"
+  exit 1
+fi
+
+echo "Found .env at: $ENV_FILE"
+source "$ENV_FILE"
 source kafka-entities.sh
 
 CONTAINER_NAME="$SINGLE_NODE_CONTAINER_NAME_1"
