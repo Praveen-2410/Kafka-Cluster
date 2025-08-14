@@ -1,20 +1,20 @@
 #!/bin/bash
+set -e
 
-# Load environment variables
-ENV_FILE="$(dirname "$0")/../.env"
+# Find REMOTE_DIR relative to this script's location
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+REMOTE_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+
+# Path to .env file
+ENV_FILE="$REMOTE_DIR/.env"
+
 if [ ! -f "$ENV_FILE" ]; then
-  echo "❌ .env not found!"
+  echo "ERROR: .env file not found at $ENV_FILE"
   exit 1
 fi
 
-# ✅ Load all exported variables (this will work)
+echo "Found .env at: $ENV_FILE"
 source "$ENV_FILE"
-
-# Now verify if needed vars exist
-if [ -z "$KAFKA_RELEASE" ] || [ -z "$NEXUS_REPO" ]; then
-  echo "❌ Missing KAFKA_RELEASE or NEXUS_REPO in .env"
-  exit 1
-fi
 
 
 # Show currently available images
