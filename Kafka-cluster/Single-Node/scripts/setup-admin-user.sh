@@ -1,16 +1,19 @@
 #!/bin/bash
 set -e
 
+# Find REMOTE_DIR relative to this script's location
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+REMOTE_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
-ENV_FILE="$PROJECT_ROOT/.env"
+# Path to .env file
+ENV_FILE="$REMOTE_DIR/.env"
 
 if [ ! -f "$ENV_FILE" ]; then
-  echo "❌ ERROR: .env not found!"
+  echo "ERROR: .env file not found at $ENV_FILE"
   exit 1
 fi
 
+echo "Found .env at: $ENV_FILE"
 source "$ENV_FILE"
 
 CONTAINER_NAME="$SINGLE_NODE_CONTAINER_NAME_1"
