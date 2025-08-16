@@ -3,7 +3,7 @@ set -e
  
 # Find REMOTE_DIR relative to this script's location
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-REMOTE_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+REMOTE_DIR="$(dirname "$SCRIPT_DIR")"
  
 # Path to .env file
 ENV_FILE="$REMOTE_DIR/.env"
@@ -18,7 +18,7 @@ source "$ENV_FILE"
 
 # Load image tag
 if [ -f image-tag.txt ]; then
-  export IMAGE_FULL=$(cat image-tag.txt)
+  export IMAGE_FULL=$(cat $REMOTE_DIR/image-tag.txt)
 else
   echo "❌ ERROR: image-tag.txt not found!"
   exit 1
@@ -45,12 +45,12 @@ export NODE_ID BROKER_IP CONTAINER_NAME IMAGE_FULL NEXUS_HOST \
 
 
 # Generate config/server.properties
-envsubst < config/server.properties.template > config/server.properties
+envsubst < $REMOTE_DIR/config/server.properties.template > $REMOTE_DIR/config/server.properties
 
 # Generate podman-compose.yml
-envsubst < podman-compose.yml.template > podman-compose.yml
+envsubst < $REMOTE_DIR/podman-compose.yml.template > $REMOTE_DIR/podman-compose.yml
 
 # Generate podman-compose.yml
-envsubst < config/kafka_jaas.conf.template > config/kafka_encrypted_jaas.conf
+envsubst < $REMOTE_DIR/config/kafka_jaas.conf.template > $REMOTE_DIR/config/kafka_encrypted_jaas.conf
 
 echo "✅ Config generated for broker-$BROKER_NUM at IP $BROKER_IP"
