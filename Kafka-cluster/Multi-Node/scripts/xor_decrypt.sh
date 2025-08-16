@@ -3,7 +3,7 @@ set -e
 
 # Find REMOTE_DIR relative to this script's location
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-REMOTE_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+REMOTE_DIR="$(dirname "$SCRIPT_DIR")"
  
 # Input encrypted passwords file
 ENCRYPTED_FILE="$REMOTE_DIR/config/kafka_encrypted_jaas.conf"
