@@ -44,46 +44,6 @@ stage('Load Environment Variables from Jenkins Secret File') {
   }
 }
 
-stage('Generate Remote Environment File') {
-  steps {
-    script {
-      def envLines = env.SECRET_ENV_CONTENT.split('\n')
-      def getValue = { key ->
-        def line = envLines.find { it.startsWith("${key}=") }
-        return line ? line.split('=', 2)[1].trim() : null
-      }
-
-      def remoteEnv = """
-        export REMOTE_DIR="${getValue('REMOTE_DIR')}"
-        export KAFKA_BASE_IMAGE="${getValue('KAFKA_BASE_IMAGE')}"
-        export KAFKA_RELEASE="${getValue('KAFKA_RELEASE')}"
-        export NEXUS_HOST="${getValue('NEXUS_HOST')}"
-        export NEXUS_REPO="${getValue('NEXUS_REPO')}"
-
-        export BROKER1_IP=${getValue('BROKER1_IP')}
-        export BROKER2_IP=${getValue('BROKER2_IP')}
-        export BROKER3_IP=${getValue('BROKER3_IP')}
-
-        export INTERNAL_PORT=${getValue('INTERNAL_PORT')}
-        export EXTERNAL_PORT=${getValue('EXTERNAL_PORT')}
-        export CONTROLLER_PORT=${getValue('CONTROLLER_PORT')}
-
-        export BROKER_ID_1=${getValue('BROKER_ID_1')}
-        export BROKER_ID_2=${getValue('BROKER_ID_2')}
-        export BROKER_ID_3=${getValue('BROKER_ID_3')}
-
-        export CONTAINER_NAME_1=${getValue('CONTAINER_NAME_1')}
-        export CONTAINER_NAME_2=${getValue('CONTAINER_NAME_2')}
-        export CONTAINER_NAME_3=${getValue('CONTAINER_NAME_3')}
-
-      """.stripIndent()
-
-      writeFile file: 'remote-env.sh', text: remoteEnv
-      sh 'chmod +x remote-env.sh'
-    }
-  }
-}
-
 
   
     stage('Generate Dynamic Tag') {
@@ -148,6 +108,7 @@ stage('Distribute Files to All Nodes') {
               mkdir -p "\$BASE_DIR/config/certs"
               mkdir -p "\$BASE_DIR/config/client-properties"
               mkdir -p "\$BASE_DIR/scripts"
+              mkdir -p "\$BASE_DIR/xor_encrypt_decrypt"
 
               # Grant ec2-user access via ACL 
               sudo setfacl -R -m u:ec2-user:rwx "\$BASE_DIR"
@@ -156,7 +117,7 @@ stage('Distribute Files to All Nodes') {
 
             # Copy core files
             scp -o StrictHostKeyChecking=no \
-              remote-env.sh \
+              Kafka-cluster/.env \
               $MULTI_NODE_REMOTE_DIR/image-tag.txt \
               $MULTI_NODE_REMOTE_DIR/podman-compose.yml.template \
               ${node}:${REMOTE_DIR}/
@@ -187,6 +148,11 @@ stage('Distribute Files to All Nodes') {
             scp -o StrictHostKeyChecking=no \
               $MULTI_NODE_REMOTE_DIR/scripts/* \
               ${node}:${REMOTE_DIR}/scripts/
+
+            # Copy XOR Jar files
+            scp -o StrictHostKeyChecking=no \
+              Kafka-cluster/xor_encrypt_decrypt/* \
+              ${node}:${REMOTE_DIR}/xor_encrypt_decrypt/
 
           """
         }

@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Load environment variables
-ENV_FILE="$(dirname "$0")/../remote-env.sh"
+ENV_FILE="$(dirname "$0")/../.env"
 if [ ! -f "$ENV_FILE" ]; then
-  echo "❌ remote-env.sh not found!"
+  echo "❌ .env not found!"
   exit 1
 fi
 

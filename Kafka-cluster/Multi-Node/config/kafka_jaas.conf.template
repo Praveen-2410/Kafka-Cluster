@@ -1,0 +1,8 @@
+KafkaServer {
+  org.apache.kafka.common.security.plain.PlainLoginModule required
+  user_admin=$KAFKA_ADMIN_PASSWORD
+  user_du=$KAFKA_DU_PASSWORD
+  user_etis=$KAFKA_ETIS_PASSWORD
+  user_crdb=$KAFKA_CRDB_PASSWORD
+  user_tdra=$KAFKA_TDRA_PASSWORD
+};
