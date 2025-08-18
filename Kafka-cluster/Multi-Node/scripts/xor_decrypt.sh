@@ -1,6 +1,7 @@
+[ec2-user@kafka-broker-1 Dev-kafka-cluster]$ cat scripts/xor_decrypt.sh
 #!/bin/bash
 set -e
-
+ 
 # Find REMOTE_DIR relative to this script's location
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REMOTE_DIR="$(dirname "$SCRIPT_DIR")"
@@ -19,11 +20,12 @@ total_users=$(grep -c '^[[:space:]]*user_' "$ENCRYPTED_FILE")
 count=0
  
 while IFS= read -r line; do
-    [[ -z "$line" || ! "$line" =~ ^user_ ]] && continue
-    count=$((count+1))
+    trimmed=$(echo "$line" | xargs)
+    [[ -z "$trimmed" || ! "$trimmed" =~ ^user_ ]] && continue
  
-    user=$(echo "$line" | cut -d '=' -f 1 | xargs)
-    enc=$(echo "$line" | cut -d '=' -f 2- | tr -d '[:space:]')
+    count=$((count+1))
+    user=$(echo "$trimmed" | cut -d '=' -f 1)
+    enc=$(echo "$trimmed" | cut -d '=' -f 2-)
  
     echo "Decrypting password for $user..."
  
@@ -36,6 +38,7 @@ while IFS= read -r line; do
         echo "  ${user}=${dec_pwd}" >> "$tmpfile"
     fi
 done < "$ENCRYPTED_FILE"
+ 
  
 echo "};" >> "$tmpfile"
  
