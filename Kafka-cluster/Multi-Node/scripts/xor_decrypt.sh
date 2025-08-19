@@ -33,10 +33,11 @@ while IFS= read -r line; do
         com.telcordia.util.PasswordEncryptor "d" "$enc")
  
     if [[ $count -eq $total_users ]]; then
-        echo "  ${user}=${dec_pwd};" >> "$tmpfile"
+        echo "  ${user}=\"${dec_pwd}\";" >> "$tmpfile"
     else
-        echo "  ${user}=${dec_pwd}" >> "$tmpfile"
+        echo "  ${user}=\"${dec_pwd}\"" >> "$tmpfile"
     fi
+
 done < "$ENCRYPTED_FILE"
  
  
