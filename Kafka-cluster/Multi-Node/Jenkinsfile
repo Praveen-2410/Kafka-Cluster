@@ -236,6 +236,7 @@ echo "IMAGE: \$IMAGE"
 echo "REGISTRY: \$REGISTRY"
 cd $REMOTE_DIR
 bash scripts/xor_decrypt.sh
+sudo chmod 755 config/kafka_decrypted_jaas.conf
 sudo chown -R 100999:100999 "${REMOTE_DIR}"
 podman-compose -f podman-compose.yml up -d
 EOF
@@ -382,6 +383,11 @@ stage('Cleanup container Images') {
         cd Kafka-cluster/Multi-Node/scripts &&
         bash cleanup-jenkins-images.sh
         '''
+
+        sh '''
+        sudo rm -rf $REMOTE_DIR/config/kafka_decrypted_jaas.conf
+        '''
+
         echo "Cleaning up old images on Kafka Nodes (retain 3 each)..."
         for (node in nodes) {
           sh """
