@@ -238,7 +238,7 @@ ssh -o StrictHostKeyChecking=no $SINGLENODE \\
   echo "Logging in..."
   cd $REMOTE_DIR
   bash shared/scripts/xor_decrypt.sh
-  sudo chmod 777 $REMOTE_DIR/shared/scripts/kafka_decrypted_jaas.conf
+  sudo chmod 777 $REMOTE_DIR/shared/jaas/kafka_decrypted_jaas.conf
   sudo chown -R 100999:100999 "${REMOTE_DIR}"
   podman-compose -f podman-compose.yml up -d
 ENDSSH
