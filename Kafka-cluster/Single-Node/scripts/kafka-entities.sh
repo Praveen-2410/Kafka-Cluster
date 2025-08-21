@@ -2,14 +2,6 @@
 
 # Format: declare associative arrays and lists
 
-# Users and their passwords
-declare -A USER_PASSWORDS=(
-  [du]="du-password"
-  [etis]="etis-password"
-  [crdb]="crdb-password"
-  [tdra]="tdra-password"
-)
-
 # List of topics to create
 TOPICS=(
   "npc-raw-msg"

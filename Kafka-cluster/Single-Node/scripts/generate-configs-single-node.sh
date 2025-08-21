@@ -60,6 +60,8 @@ export SINGLE_NODE_IP
 # Container names 
 export SINGLE_NODE_CONTAINER_NAME_1 SINGLE_NODE_CONTAINER_NAME_2 SINGLE_NODE_CONTAINER_NAME_3
 
+export KAFKA_ADMIN_PASSWORD  KAFKA_DU_PASSWORD KAFKA_ETIS_PASSWORD KAFKA_CRDB_PASSWORD KAFKA_TDRA_PASSWORD 
+
 # Broker 1 
 export SINGLE_NODE_BROKER1_INTERNAL_PORT SINGLE_NODE_BROKER1_CONTROLLER_PORT SINGLE_NODE_BROKER1_EXTERNAL_PORT
 
@@ -75,5 +77,7 @@ done
 # Generate podman-compose.yml
 echo "Generating podman-compose.yml from $COMPOSE_TEMPLATE_PATH..."
 envsubst < "$COMPOSE_TEMPLATE_PATH" > "$COMPOSE_OUTPUT_PATH"
+
+envsubst < $REMOTE_DIR/shared/jaas/kafka_jaas.conf.template > $REMOTE_DIR/shared/jaas/kafka_encrypted_jaas.conf
 
 echo "All broker configs and podman-compose.yml generated successfully."
