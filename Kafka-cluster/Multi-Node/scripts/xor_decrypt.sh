@@ -1,4 +1,3 @@
-[ec2-user@kafka-broker-1 Dev-kafka-cluster]$ cat scripts/xor_decrypt.sh
 #!/bin/bash
 set -e
  
