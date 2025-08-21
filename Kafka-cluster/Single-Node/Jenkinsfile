@@ -129,7 +129,7 @@ stage('Load Environment Variables from Jenkins Secret File') {
 
         # Copy JAAS configs
         scp -o StrictHostKeyChecking=no \
-          $SINGLE_NODE_REMOTE_DIR/config/kafka_jaas.conf \
+          $SINGLE_NODE_REMOTE_DIR/config/kafka_jaas.conf.template \
           $SINGLE_NODE_REMOTE_DIR/config/kafka_admin_jaas.conf \
           $SINGLENODE:$REMOTE_DIR/shared/jaas/
 
@@ -238,6 +238,7 @@ ssh -o StrictHostKeyChecking=no $SINGLENODE \\
   echo "Logging in..."
   cd $REMOTE_DIR
   bash shared/scripts/xor_decrypt.sh
+  sudo chmod 777 shared/scripts/kafka_decrypted_jaas.conf
   sudo chown -R 100999:100999 "${REMOTE_DIR}"
   podman-compose -f podman-compose.yml up -d
 ENDSSH
