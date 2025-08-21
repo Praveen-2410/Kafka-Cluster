@@ -5,7 +5,7 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REMOTE_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
  
-USERS=("user_etis" "user_du" "user_admin" "user_crdb" "user_tdra")
+USERS=( "user_admin"  "user_du" "user_etis" "user_crdb" "user_tdra")
  
 # Temp file for storing output
 tmpfile=$(mktemp)
@@ -23,13 +23,13 @@ for user in "${USERS[@]}"; do
     fi
  
     # Encrypt password
-    encrypted_pwd=$(java -cp "$REMOTE_DIR/xor_encrypt_decrypt/PasswordUtility.jar:$REMOTE_DIR/xor_encrypt_decrypt/xercesImpl.jar" \
+    encrypted_pwd=$(java -cp "$REMOTE_DIR/shared/xor_encrypt_decrypt/PasswordUtility.jar:$REMOTE_DIR/shared/xor_encrypt_decrypt/xercesImpl.jar" \
         com.telcordia.util.PasswordEncryptor "e" "$password")
  
     echo "${user}=${encrypted_pwd}" >> "$tmpfile"
 done
  
-ENCRYPTED_FILE="/home/npc/encrypted_passwords"
+ENCRYPTED_FILE="encrypted_passwords"
 mv -f "$tmpfile" "$ENCRYPTED_FILE"
  
 echo "User passswords encrypted successfully at $ENCRYPTED_FILE"
